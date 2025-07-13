@@ -1,0 +1,160 @@
+{
+  "design_system": {
+    "name": "Dashboard Design System",
+    "description": "A clean and modular dashboard design system with a focus on performance tracking and task management.",
+    "styles": {
+      "typography": {
+        "font_family": "Inter, sans-serif",
+        "h1": {
+          "font_size": "24px",
+          "font_weight": "600",
+          "color": "#1A1A1A"
+        },
+        "h2": {
+          "font_size": "18px",
+          "font_weight": "600",
+          "color": "#1A1A1A",
+          "margin_bottom": "16px"
+        },
+        "body": {
+          "font_size": "14px",
+          "font_weight": "400",
+          "color": "#333333"
+        },
+        "bold": {
+          "font_weight": "600"
+        }
+      },
+      "colors": {
+        "primary": "#4F46E5",
+        "secondary": "#10B981",
+        "background": "#FFFFFF",
+        "text_primary": "#1A1A1A",
+        "text_secondary": "#666666",
+        "highlight": "#F59E0B",
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444"
+      },
+      "spacing": {
+        "small": "8px",
+        "medium": "16px",
+        "large": "24px",
+        "xlarge": "32px"
+      },
+      "borders": {
+        "radius_small": "4px",
+        "radius_medium": "8px",
+        "radius_large": "12px",
+        "width_thin": "1px",
+        "color": "#E5E7EB"
+      },
+      "shadows": {
+        "small": "0 1px 2px rgba(0, 0, 0, 0.05)",
+        "medium": "0 4px 6px rgba(0, 0, 0, 0.1)"
+      }
+    },
+    "components": {
+      "card": {
+        "background": "#FFFFFF",
+        "border_radius": "8px",
+        "box_shadow": "0 4px 6px rgba(0, 0, 0, 0.1)",
+        "padding": "16px",
+        "margin_bottom": "16px"
+      },
+      "list": {
+        "item_spacing": "12px",
+        "bullet_style": "none",
+        "padding_left": "0"
+      },
+      "progress_indicator": {
+        "height": "8px",
+        "background": "#E5E7EB",
+        "fill_color": "#4F46E5",
+        "border_radius": "4px"
+      },
+      "badge": {
+        "padding": "4px 8px",
+        "border_radius": "4px",
+        "font_size": "12px",
+        "font_weight": "600"
+      },
+      "avatar": {
+        "size": "40px",
+        "border_radius": "50%",
+        "border": "2px solid #FFFFFF"
+      }
+    },
+    "layout": {
+      "grid": {
+        "columns": "12",
+        "gutter": "16px",
+        "max_width": "1200px"
+      },
+      "sidebar": {
+        "width": "250px",
+        "background": "#F9FAFB",
+        "padding": "16px"
+      },
+      "header": {
+        "height": "60px",
+        "background": "#FFFFFF",
+        "box_shadow": "0 1px 2px rgba(0, 0, 0, 0.05)"
+      }
+    },
+    "interactive_elements": {
+      "button": {
+        "primary": {
+          "background": "#4F46E5",
+          "color": "#FFFFFF",
+          "padding": "8px 16px",
+          "border_radius": "6px",
+          "hover": {
+            "background": "#4338CA"
+          }
+        },
+        "secondary": {
+          "background": "#E0E7FF",
+          "color": "#4F46E5",
+          "padding": "8px 16px",
+          "border_radius": "6px",
+          "hover": {
+            "background": "#C7D2FE"
+          }
+        }
+      },
+      "input": {
+        "height": "40px",
+        "padding": "8px 12px",
+        "border": "1px solid #D1D5DB",
+        "border_radius": "6px",
+        "focus": {
+          "border": "1px solid #4F46E5",
+          "box_shadow": "0 0 0 2px rgba(79, 70, 229, 0.2)"
+        }
+      }
+    },
+    "patterns": {
+      "task_status": {
+        "in_progress": {
+          "color": "#F59E0B",
+          "icon": "⏳"
+        },
+        "on_hold": {
+          "color": "#EF4444",
+          "icon": "⏸️"
+        },
+        "done": {
+          "color": "#10B981",
+          "icon": "✅"
+        }
+      },
+      "notification": {
+        "background": "#F9FAFB",
+        "padding": "12px",
+        "border_radius": "8px",
+        "border_left": "3px solid #4F46E5"
+      }
+    }
+  }
+}

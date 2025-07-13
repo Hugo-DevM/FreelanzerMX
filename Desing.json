@@ -1,0 +1,90 @@
+{
+  "designSystem": {
+    "typography": {
+      "fontFamily": "Sans-serif, modern (e.g., Poppins, Inter)",
+      "headingWeight": "Bold",
+      "bodyWeight": "Regular",
+      "headingSize": ["2xl", "xl", "lg"],
+      "bodySize": ["base", "sm"],
+      "alignment": "Left-aligned",
+      "letterSpacing": "Normal"
+    },
+    "colors": {
+      "primary": "#3D4EEA",
+      "secondary": "#F24E6F",
+      "accent1": "#FDBD3F",
+      "accent2": "#A47EF8",
+      "neutralBackground": "#FFFFFF",
+      "lightGray": "#F4F5F7",
+      "textPrimary": "#0E0E2C",
+      "textSecondary": "#6B7280"
+    },
+    "layout": {
+      "grid": {
+        "columns": 12,
+        "gutter": "24px",
+        "padding": "32px"
+      },
+      "alignment": "Left-heavy with right visual offset",
+      "breakpoints": {
+        "mobile": "≤ 640px",
+        "tablet": "641px - 1024px",
+        "desktop": "≥ 1025px"
+      }
+    },
+    "components": {
+      "form": {
+        "input": {
+          "padding": "16px",
+          "borderRadius": "8px",
+          "background": "#FFFFFF",
+          "border": "1px solid #E5E7EB",
+          "shadow": "subtle (e.g., 0px 2px 4px rgba(0,0,0,0.05))"
+        },
+        "button": {
+          "background": "#3D4EEA",
+          "textColor": "#FFFFFF",
+          "borderRadius": "8px",
+          "padding": "16px 24px",
+          "fontWeight": "medium",
+          "shadow": "subtle"
+        },
+        "link": {
+          "color": "#3D4EEA",
+          "fontSize": "sm",
+          "decoration": "underline on hover"
+        }
+      },
+      "cards": {
+        "background": "#FFFFFF",
+        "borderRadius": "16px",
+        "shadow": "soft (e.g., 0 8px 24px rgba(0,0,0,0.06))",
+        "padding": "24px",
+        "spacing": "16px"
+      },
+      "chart": {
+        "type": "pie",
+        "colors": ["#FDBD3F", "#F24E6F", "#3D4EEA"],
+        "legendPosition": "right"
+      }
+    },
+    "illustrations": {
+      "style": "Flat vector shapes",
+      "colorPalette": ["#FDBD3F", "#F24E6F", "#3D4EEA", "#A47EF8", "#FFFFFF"],
+      "layout": "Overlapping circles and cards"
+    },
+    "iconography": {
+      "style": "Minimal, rounded line icons",
+      "usage": "Navigation, action items, visual guidance"
+    },
+    "motion": {
+      "transitions": {
+        "default": "all 0.2s ease-in-out"
+      },
+      "hoverEffects": {
+        "button": "slight elevation and color darken",
+        "card": "slight scale up"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --font-rubik: var(--font-rubik);
+}
+
+body {
+  font-family: "Rubik", sans-serif;
+}
+
+/* Asegurar que Rubik se aplique a todos los elementos */
+* {
+  font-family: "Rubik", sans-serif;
+}
