@@ -96,7 +96,8 @@ const SignupForm: React.FC = () => {
         phone: formData.phone || undefined,
         company: formData.company || undefined,
       });
-      router.push("/dashboard");
+      // El hook useAuth se encarga de redirigir a /verify-email
+      // No necesitamos hacer router.push aquí
     } catch (error: any) {
       console.error("Signup form error:", error);
       // El error ya se maneja en el hook useAuth, no necesitamos hacer nada aquí
