@@ -10,8 +10,10 @@ import {
   UserProfile,
 } from "../services/userService";
 import { User as SupabaseUser } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 export const useAuth = () => {
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     loading: true,
@@ -132,6 +134,8 @@ export const useAuth = () => {
               display_name: userData.displayName,
               first_name: userData.firstName,
               last_name: userData.lastName,
+              phone: userData.phone,
+              company: userData.company,
             },
           },
         });
@@ -139,21 +143,7 @@ export const useAuth = () => {
         if (error) throw error;
 
         if (data.user) {
-          // Crear el perfil del usuario
-          await createUserProfile({
-            id: data.user.id,
-            email: data.user.email || email,
-            display_name: userData.displayName,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            phone: userData.phone,
-            company: userData.company,
-            business_info: {
-              business_name: userData.displayName,
-            },
-          });
-
-          // Actualizar el estado de autenticación inmediatamente
+          // El perfil se creará automáticamente por el trigger de la base de datos
           const user: User = {
             uid: data.user.id,
             email: data.user.email || email,
@@ -164,8 +154,15 @@ export const useAuth = () => {
 
           setAuthState({ user, loading: false, error: null });
 
-          // Cargar el perfil del usuario
-          await loadUserProfile(data.user.id);
+          // Guarda el email para la pantalla de verificación
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pendingVerificationEmail", email);
+          }
+
+          // Redirige a la pantalla de verificación
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+
+          // Si quieres seguir intentando cargar el perfil, puedes dejar el setTimeout
         }
       } catch (error: any) {
         console.error("SignUp error details:", error);
@@ -177,7 +174,7 @@ export const useAuth = () => {
         throw authError;
       }
     },
-    [loadUserProfile]
+    [loadUserProfile, router]
   );
 
   const signOut = useCallback(async () => {

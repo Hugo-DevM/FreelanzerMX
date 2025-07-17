@@ -86,6 +86,13 @@ export const createUserProfile = async (
   userData: CreateUserProfileData
 ): Promise<void> => {
   try {
+    // Verificar si el perfil ya existe (creado por el trigger)
+    const existingProfile = await getUserProfile(userData.id);
+    if (existingProfile) {
+      console.log("Profile already exists, skipping creation");
+      return;
+    }
+
     const cleanedUserData = cleanUndefinedValues(userData);
     const userProfile: UserProfile = {
       ...cleanedUserData,
