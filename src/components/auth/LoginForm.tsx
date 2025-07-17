@@ -7,12 +7,13 @@ import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Card from "../ui/Card";
 import Logo from "../ui/Logo";
+import GoogleButton from "../ui/GoogleButton";
 import { EmailIcon, LockIcon, EyeIcon, EyeOffIcon } from "../ui/icons";
 import { useAuth } from "../../hooks/useAuth";
 
 const LoginForm: React.FC = () => {
   const router = useRouter();
-  const { signIn, loading, error, clearError } = useAuth();
+  const { signIn, signInWithGoogle, loading, error, clearError } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -56,6 +57,12 @@ const LoginForm: React.FC = () => {
     try {
       await signIn(formData.email, formData.password);
       router.push("/dashboard");
+    } catch (error) {}
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
     } catch (error) {}
   };
 
@@ -129,6 +136,25 @@ const LoginForm: React.FC = () => {
               Iniciar sesión
             </Button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">O continúa con</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <GoogleButton
+                onClick={handleGoogleSignIn}
+                loading={loading}
+                disabled={loading}
+              />
+            </div>
+          </div>
 
           <div className="mt-8 text-center">
             <p className="text-[#6B7280]">

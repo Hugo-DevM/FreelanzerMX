@@ -37,6 +37,7 @@ export interface AuthContextType extends AuthState {
   userProfile: UserProfile | null;
   profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (
     email: string,
     password: string,

@@ -98,30 +98,39 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
           />
 
           {/* Data points */}
-          {points.map((point, index) => (
-            <circle
-              key={index}
-              cx={point.x}
-              cy={point.y}
-              r="5"
-              fill="#9ae700"
-              stroke="white"
-              strokeWidth="2"
-            />
-          ))}
+          {points
+            .filter(point => 
+              typeof point.x === 'number' && 
+              !isNaN(point.x) && 
+              typeof point.y === 'number' && 
+              !isNaN(point.y)
+            )
+            .map((point, index) => (
+              <circle
+                key={index}
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                fill="#9ae700"
+                stroke="white"
+                strokeWidth="2"
+              />
+            ))}
 
           {/* X-axis labels */}
-          {points.map((point, index) => (
-            <text
-              key={index}
-              x={point.x}
-              y={chartHeight - 10}
-              textAnchor="middle"
-              className="text-xs fill-[#666666]"
-            >
-              {point.week}
-            </text>
-          ))}
+          {points
+            .filter(point => typeof point.x === 'number' && !isNaN(point.x))
+            .map((point, index) => (
+              <text
+                key={index}
+                x={point.x}
+                y={chartHeight - 10}
+                textAnchor="middle"
+                className="text-xs fill-[#666666]"
+              >
+                {point.week}
+              </text>
+            ))}
         </svg>
 
         {/* Tooltip on hover */}
@@ -147,7 +156,7 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
         <div className="flex justify-between items-center">
           <span className="text-sm text-[#666666]">Total del período:</span>
           <span className="text-lg font-semibold text-[#1A1A1A]">
-            ${data.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+            ${validData.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
           </span>
         </div>
       </div>
