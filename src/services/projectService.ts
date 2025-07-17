@@ -351,12 +351,8 @@ export const getContracts = async (): Promise<Contract[]> => {
       service: contract.service,
       amount: contract.amount,
       deliverables: contract.deliverables,
-      startDate: contract.start_date
-        ? new Date(contract.start_date)
-        : undefined,
-      endDate: contract.delivery_date
-        ? new Date(contract.delivery_date)
-        : undefined,
+      startDate: contract.start_date || undefined,
+      endDate: contract.delivery_date || undefined,
     })) as Contract[];
   } catch (error: any) {
     console.error("Error getting contracts:", error);

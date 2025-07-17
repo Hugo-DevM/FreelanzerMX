@@ -106,7 +106,7 @@ const SignupForm: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F4F5F7] to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-xl">
         <Card className="shadow-2xl">
           <div className="text-center mb-8">
             <Logo className="mb-6" width={140} height={50} />

@@ -38,15 +38,16 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
     );
   };
 
-  const parseLocalDate = (dateString: string | undefined | null) => {
+  // Formatea una fecha YYYY-MM-DD a DD/MM/YYYY
+  const formatDate = (dateString: string | undefined | null) => {
     if (
       !dateString ||
       typeof dateString !== "string" ||
       !dateString.includes("-")
     )
-      return new Date("Invalid");
-    const [year, month, day] = dateString.split("-").map(Number);
-    return new Date(year, month - 1, day);
+      return "-";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
   };
 
   return (
@@ -95,24 +96,10 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
               Ciudad: <b>{city}</b>
             </div>
             <div>
-              Fecha de inicio:{" "}
-              <b>
-                {parseLocalDate(startDate).toLocaleDateString("es-MX", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </b>
+              Fecha de inicio: <b>{startDate}</b>
             </div>
             <div>
-              Fecha de entrega:{" "}
-              <b>
-                {parseLocalDate(deliveryDate).toLocaleDateString("es-MX", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </b>
+              Fecha de entrega: <b>{deliveryDate}</b>
             </div>
           </div>
 

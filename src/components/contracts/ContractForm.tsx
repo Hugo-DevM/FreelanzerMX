@@ -45,13 +45,24 @@ const ContractForm: React.FC<ContractFormProps> = ({
     amount: initialData?.amount ?? (undefined as any),
     currency: initialData?.currency || "MXN",
     paymentMethod: initialData?.paymentMethod || "",
-    startDate: initialData?.startDate || new Date().toISOString().split("T")[0],
+    startDate:
+      initialData?.startDate ||
+      (() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      })(),
     deliveryDate:
       initialData?.deliveryDate ||
       (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 7);
-        return d.toISOString().split("T")[0];
+        const today = new Date();
+        today.setDate(today.getDate() + 7);
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
       })(),
     city: initialData?.city || "",
   });
@@ -76,7 +87,11 @@ const ContractForm: React.FC<ContractFormProps> = ({
   }, [showPreview, onShowPreviewChange, formData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type } = e.target;
+    setFormData({
+      ...formData,
+      [name]: name === "amount" ? (value === "" ? "" : Number(value)) : value,
+    });
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
