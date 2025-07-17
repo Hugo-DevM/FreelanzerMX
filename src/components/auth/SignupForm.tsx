@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Card from "../ui/Card";
 import Logo from "../ui/Logo";
+import GoogleButton from "../ui/GoogleButton";
 import {
   EmailIcon,
   LockIcon,
@@ -20,7 +21,7 @@ import { useAuth } from "../../hooks/useAuth";
 
 const SignupForm: React.FC = () => {
   const router = useRouter();
-  const { signUp, loading, error, clearError } = useAuth();
+  const { signUp, signInWithGoogle, loading, error, clearError } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -102,6 +103,12 @@ const SignupForm: React.FC = () => {
       console.error("Signup form error:", error);
       // El error ya se maneja en el hook useAuth, no necesitamos hacer nada aquí
     }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {}
   };
 
   return (
@@ -248,6 +255,27 @@ const SignupForm: React.FC = () => {
               Crear cuenta
             </Button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">O regístrate con</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <GoogleButton
+                onClick={handleGoogleSignIn}
+                loading={loading}
+                disabled={loading}
+              >
+                Continuar con Google
+              </GoogleButton>
+            </div>
+          </div>
 
           <div className="mt-8 text-center">
             <p className="text-[#6B7280]">

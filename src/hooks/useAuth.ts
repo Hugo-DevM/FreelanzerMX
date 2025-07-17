@@ -83,6 +83,31 @@ export const useAuth = () => {
           createdAt: new Date(session.user.created_at),
         };
         setAuthState({ user, loading: false, error: null });
+        
+        // Verificar si el usuario ya tiene un perfil
+        const profileExists = await userProfileExists(session.user.id);
+        if (!profileExists) {
+          // Crear perfil automáticamente para usuarios de Google
+          try {
+            const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "";
+            const [firstName, ...lastNameParts] = fullName.split(" ");
+            const lastName = lastNameParts.join(" ") || "";
+            
+            await createUserProfile({
+              id: session.user.id,
+              email: session.user.email || "",
+              display_name: session.user.user_metadata?.display_name || fullName,
+              first_name: firstName,
+              last_name: lastName,
+              business_info: {
+                business_name: session.user.user_metadata?.display_name || fullName,
+              },
+            });
+          } catch (error) {
+            console.error("Error creating user profile for Google user:", error);
+          }
+        }
+        
         loadUserProfile(session.user.id);
       } else {
         setAuthState({ user: null, loading: false, error: null });
@@ -99,6 +124,29 @@ export const useAuth = () => {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.status || "unknown",
+        message: getErrorMessage(error.message),
+      };
+      setAuthState((prev) => ({ ...prev, loading: false, error: authError }));
+      throw authError;
+    }
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
       });
       if (error) throw error;
     } catch (error: any) {
@@ -231,6 +279,7 @@ export const useAuth = () => {
     userProfile,
     profileLoading,
     signIn,
+    signInWithGoogle,
     signUp,
     signOut,
     resetPassword,
