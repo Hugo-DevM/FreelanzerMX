@@ -162,6 +162,7 @@ export default function ContractsPage() {
         </div>
         {showForm ? (
           <ContractForm
+            initialData={previewData || undefined}
             onBack={() => {
               setShowForm(false);
               setSelectedQuote(null);

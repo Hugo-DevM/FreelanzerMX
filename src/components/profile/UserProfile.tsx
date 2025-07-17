@@ -122,10 +122,9 @@ const UserProfileComponent: React.FC = () => {
     async function fetchSignedUrl() {
       if (profileImage && !profileImage.startsWith("data:")) {
         let path = profileImage;
-        const publicPrefix =
-          "https://rskxpdbzbkxjhixtuveg.supabase.co/storage/v1/object/public/profile-pictures/";
-        if (profileImage.startsWith(publicPrefix)) {
-          path = profileImage.replace(publicPrefix, "");
+        const publicPrefix = process.env.NEXT_PUBLIC_SUPABASE_PREFIX;
+        if (profileImage.startsWith(publicPrefix!)) {
+          path = profileImage.replace(publicPrefix!, "");
         }
         // Intenta obtener la signed URL de localStorage
         const cacheKey = `signedProfileImageUrl:${path}`;

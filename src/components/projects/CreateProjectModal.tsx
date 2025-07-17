@@ -64,23 +64,20 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setSelectedContract(contractId);
     const contract = contracts.find((c) => c.id === contractId);
     if (contract) {
-      let endDate: Date | undefined;
-      if (contract.endDate instanceof Date) {
-        endDate = contract.endDate;
-      } else if (typeof contract.endDate === "string") {
-        endDate = new Date(contract.endDate);
-      } else if ((contract.endDate as any)?.toDate) {
-        endDate = (contract.endDate as any).toDate();
+      let dueDate = "";
+      if (contract.endDate) {
+        if (typeof contract.endDate === "string") {
+          dueDate = contract.endDate;
+        } else if (contract.endDate instanceof Date) {
+          dueDate = contract.endDate.toISOString().split("T")[0];
+        }
       }
       setFormData({
         name: contract.service,
         description: `Proyecto basado en contrato con ${contract.clientName}`,
         client: contract.clientName,
         priority: "medium",
-        dueDate:
-          endDate && !isNaN(endDate.getTime())
-            ? endDate.toISOString().split("T")[0]
-            : "",
+        dueDate: dueDate,
         amount: contract.amount?.toString() || "",
       });
     }
@@ -137,13 +134,15 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   const formatDate = (date: Date | string | undefined | null) => {
     if (!date) return "Sin fecha";
-    const d = typeof date === "string" ? new Date(date) : date;
-    if (!(d instanceof Date) || isNaN(d.getTime())) return "Sin fecha";
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(d);
+    if (typeof date === "string") {
+      return date; // Mostrar exactamente como viene de la BD: YYYY-MM-DD
+    }
+    if (date instanceof Date) {
+      return `${date.getFullYear()}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`; // YYYY-MM-DD
+    }
+    return String(date);
   };
 
   const formatCurrency = (amount: number) => {
@@ -278,51 +277,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         </p>
                         <p>
                           <strong>Fecha fin:</strong>{" "}
-                          {(() => {
-                            const end = contract.endDate;
-                            if (!end) return "Sin fecha";
-                            if (
-                              typeof end === "string" &&
-                              /^\d{4}-\d{2}-\d{2}$/.test(end as string)
-                            ) {
-                              const [y, m, d] = (end as string).split("-");
-                              return `${d}/${m}/${y}`;
-                            }
-                            if (end instanceof Date && !isNaN(end.getTime())) {
-                              const d = end
-                                .getDate()
-                                .toString()
-                                .padStart(2, "0");
-                              const m = (end.getMonth() + 1)
-                                .toString()
-                                .padStart(2, "0");
-                              const y = end.getFullYear();
-                              return `${d}/${m}/${y}`;
-                            }
-                            if (
-                              typeof end === "object" &&
-                              end !== null &&
-                              typeof (end as any).toDate === "function"
-                            ) {
-                              const dObj = (end as any).toDate();
-                              if (
-                                dObj instanceof Date &&
-                                !isNaN(dObj.getTime())
-                              ) {
-                                const d = dObj
-                                  .getDate()
-                                  .toString()
-                                  .padStart(2, "0");
-                                const m = (dObj.getMonth() + 1)
-                                  .toString()
-                                  .padStart(2, "0");
-                                const y = dObj.getFullYear();
-                                return `${d}/${m}/${y}`;
-                              }
-                              return "Sin fecha";
-                            }
-                            return "Sin fecha";
-                          })()}
+                          {formatDate(contract.endDate)}
                         </p>
                         <div>
                           <strong>Entregables:</strong>
