@@ -36,6 +36,7 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   userProfile: UserProfile | null;
   profileLoading: boolean;
+  userPlan: "free" | "pro" | "team";
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUp: (
