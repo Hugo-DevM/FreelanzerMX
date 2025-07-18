@@ -8,6 +8,8 @@ import {
   getUserProfile,
   userProfileExists,
   UserProfile,
+  getUserPlan,
+  updateUserPlan,
 } from "../services/userService";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -21,6 +23,7 @@ export const useAuth = () => {
   });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
 
   const toCamelCaseProfile = (profile: any): UserProfile | null => {
     if (!profile) return null;
@@ -39,13 +42,30 @@ export const useAuth = () => {
     try {
       setProfileLoading(true);
       const profile = await getUserProfile(id);
+      const plan = await getUserPlan(id);
       setUserProfile(toCamelCaseProfile(profile));
+      setUserPlan(plan);
     } catch (error) {
       console.error("Error loading user profile:", error);
     } finally {
       setProfileLoading(false);
     }
   }, []);
+
+  const updatePlan = useCallback(
+    async (plan: "free" | "pro" | "team") => {
+      if (!authState.user) return;
+
+      try {
+        await updateUserPlan(authState.user.uid, plan);
+        setUserPlan(plan);
+      } catch (error) {
+        console.error("Error updating user plan:", error);
+        throw error;
+      }
+    },
+    [authState.user]
+  );
 
   useEffect(() => {
     // Obtener sesión inicial
@@ -83,31 +103,39 @@ export const useAuth = () => {
           createdAt: new Date(session.user.created_at),
         };
         setAuthState({ user, loading: false, error: null });
-        
+
         // Verificar si el usuario ya tiene un perfil
         const profileExists = await userProfileExists(session.user.id);
         if (!profileExists) {
           // Crear perfil automáticamente para usuarios de Google
           try {
-            const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "";
+            const fullName =
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              "";
             const [firstName, ...lastNameParts] = fullName.split(" ");
             const lastName = lastNameParts.join(" ") || "";
-            
+
             await createUserProfile({
               id: session.user.id,
               email: session.user.email || "",
-              display_name: session.user.user_metadata?.display_name || fullName,
+              display_name:
+                session.user.user_metadata?.display_name || fullName,
               first_name: firstName,
               last_name: lastName,
               business_info: {
-                business_name: session.user.user_metadata?.display_name || fullName,
+                business_name:
+                  session.user.user_metadata?.display_name || fullName,
               },
             });
           } catch (error) {
-            console.error("Error creating user profile for Google user:", error);
+            console.error(
+              "Error creating user profile for Google user:",
+              error
+            );
           }
         }
-        
+
         loadUserProfile(session.user.id);
       } else {
         setAuthState({ user: null, loading: false, error: null });
@@ -140,11 +168,11 @@ export const useAuth = () => {
     try {
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
           queryParams: {
-            prompt: 'select_account',
+            prompt: "select_account",
           },
         },
       });
@@ -278,6 +306,8 @@ export const useAuth = () => {
     ...authState,
     userProfile,
     profileLoading,
+    userPlan,
+    updatePlan,
     signIn,
     signInWithGoogle,
     signUp,

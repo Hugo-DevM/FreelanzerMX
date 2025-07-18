@@ -31,6 +31,7 @@ export interface UserProfile {
   website?: string;
   bio?: string;
   photo_url?: string;
+  plan: "free" | "pro" | "team";
   address?: {
     street?: string;
     city?: string;
@@ -67,6 +68,7 @@ export interface CreateUserProfileData {
   company?: string;
   website?: string;
   bio?: string;
+  plan?: "free" | "pro" | "team";
   address?: {
     street?: string;
     city?: string;
@@ -96,6 +98,7 @@ export const createUserProfile = async (
     const cleanedUserData = cleanUndefinedValues(userData);
     const userProfile: UserProfile = {
       ...cleanedUserData,
+      plan: userData.plan || "free", // Asignar plan 'free' por defecto
       preferences: {
         currency: "MXN",
         language: "es",
@@ -245,5 +248,77 @@ export const updateBusinessInfo = async (
         error.message || "Error desconocido"
       }`
     );
+  }
+};
+
+export const updateUserPlan = async (
+  userId: string,
+  plan: "free" | "pro" | "team"
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ plan })
+      .eq("id", userId);
+
+    if (error) throw error;
+  } catch (error: any) {
+    console.error("Error updating user plan:", error);
+    throw new Error(
+      `Error al actualizar el plan: ${error.message || "Error desconocido"}`
+    );
+  }
+};
+
+export const getUserPlan = async (
+  userId: string
+): Promise<"free" | "pro" | "team"> => {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    return data.plan || "free";
+  } catch (error: any) {
+    console.error("Error getting user plan:", error);
+    return "free"; // Plan por defecto en caso de error
+  }
+};
+
+export const canCreateProject = async (userId: string): Promise<boolean> => {
+  try {
+    const plan = await getUserPlan(userId);
+
+    if (plan === "free") {
+      // Verificar si ya tiene 2 proyectos
+      const { data: projects, error } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return (projects || []).length < 2;
+    }
+
+    // Planes pro y team pueden crear proyectos ilimitados
+    return true;
+  } catch (error) {
+    console.error("Error checking project creation limit:", error);
+    return false; // En caso de error, no permitir crear
+  }
+};
+
+export const getProjectLimit = (plan: "free" | "pro" | "team"): number => {
+  switch (plan) {
+    case "free":
+      return 2;
+    case "pro":
+    case "team":
+      return Infinity;
+    default:
+      return 2;
   }
 };
