@@ -88,7 +88,6 @@ export const createUserProfile = async (
   userData: CreateUserProfileData
 ): Promise<void> => {
   try {
-    // Verificar si el perfil ya existe (creado por el trigger)
     const existingProfile = await getUserProfile(userData.id);
     if (existingProfile) {
       console.log("Profile already exists, skipping creation");
@@ -131,12 +130,14 @@ export const getUserProfile = async (
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select(
+        "id, email, display_name, first_name, last_name, phone, company, website, bio, photo_url, plan, address, business_info, preferences, created_at, updated_at"
+      )
       .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === "PGRST116") return null; // No encontrado
+      if (error.code === "PGRST116") return null;
       throw error;
     }
 
@@ -153,6 +154,12 @@ export const updateUserProfile = async (
 ): Promise<void> => {
   try {
     const cleanedUpdates = cleanUndefinedValues(updates);
+
+    if (Object.keys(cleanedUpdates).length === 0) {
+      console.warn("❗ No hay datos que actualizar.");
+      return; // No sigas si no hay cambios
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update(cleanedUpdates)
@@ -284,7 +291,7 @@ export const getUserPlan = async (
     return data.plan || "free";
   } catch (error: any) {
     console.error("Error getting user plan:", error);
-    return "free"; // Plan por defecto en caso de error
+    return "free";
   }
 };
 
@@ -303,11 +310,10 @@ export const canCreateProject = async (userId: string): Promise<boolean> => {
       return (projects || []).length < 2;
     }
 
-    // Planes pro y team pueden crear proyectos ilimitados
     return true;
   } catch (error) {
     console.error("Error checking project creation limit:", error);
-    return false; // En caso de error, no permitir crear
+    return false;
   }
 };
 

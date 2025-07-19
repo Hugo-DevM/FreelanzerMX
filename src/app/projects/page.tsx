@@ -1,11 +1,9 @@
 "use client";
 
-import ProtectedRoute from "../../components/auth/ProtectedRoute";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import dynamic from "next/dynamic";
-import { Suspense } from "react";
+import ProtectedRoute from "../../components/auth/ProtectedRoute";
 
-// Componente de carga
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9ae600]"></div>
@@ -13,12 +11,11 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Lazy load del componente de proyectos
 const ProjectsComponent = dynamic(
   () => import("../../components/projects/ProjectsComponent"),
   {
     loading: () => <LoadingSpinner />,
-    ssr: false, // Deshabilitar SSR para mejor performance en cliente
+    ssr: false,
   }
 );
 
@@ -27,9 +24,7 @@ export default function ProjectsPage() {
     <ProtectedRoute>
       <DashboardLayout>
         <div className="w-full">
-          <Suspense fallback={<LoadingSpinner />}>
-            <ProjectsComponent />
-          </Suspense>
+          <ProjectsComponent />
         </div>
       </DashboardLayout>
     </ProtectedRoute>

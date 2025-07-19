@@ -18,6 +18,7 @@ export interface ContractFormData {
   startDate: string;
   deliveryDate: string;
   city: string;
+  quoteId?: string;
 }
 
 interface ContractFormProps {
@@ -268,7 +269,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
 export const ContractFromQuoteForm: React.FC<{
   onBack?: () => void;
   onShowPreviewChange?: (data: ContractFormData) => void;
-}> = ({ onBack, onShowPreviewChange }) => {
+  acceptedQuotes?: QuoteData[]; // Cotizaciones filtradas que ya no han sido convertidas
+}> = ({ onBack, onShowPreviewChange, acceptedQuotes = [] }) => {
   const { user } = useAuthContext();
   const [quotes, setQuotes] = React.useState<QuoteData[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>("");
@@ -286,18 +288,22 @@ export const ContractFromQuoteForm: React.FC<{
       return d.toISOString().split("T")[0];
     })(),
     city: "",
+    quoteId: "",
   });
   const [showPreview, setShowPreview] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
-    if (user) {
+    if (acceptedQuotes.length > 0) {
+      setQuotes(acceptedQuotes);
+    } else if (user) {
+      // Fallback: cargar todas las cotizaciones aprobadas si no se pasan las filtradas
       getUserQuotes(user.uid).then((all) => {
         setQuotes(all.filter((q) => q.status === "approved"));
       });
     }
-  }, [user]);
+  }, [user, acceptedQuotes]);
   React.useEffect(() => {
     if (selectedQuoteId) {
       const quote = quotes.find((q) => q.id === selectedQuoteId);
@@ -314,6 +320,7 @@ export const ContractFromQuoteForm: React.FC<{
           deliveryDate:
             quote.delivery_date || new Date().toISOString().split("T")[0],
           city: quote.city,
+          quoteId: quote.id,
         });
       }
     }
@@ -347,6 +354,7 @@ export const ContractFromQuoteForm: React.FC<{
         start_date: formData.startDate,
         delivery_date: formData.deliveryDate,
         city: formData.city,
+        quote_id: formData.quoteId,
       });
       setSuccess(true);
       setTimeout(() => {
@@ -503,7 +511,8 @@ export const ContractFromQuoteForm: React.FC<{
 export const ContractFromQuoteModal: React.FC<{
   onClose: () => void;
   onShowPreviewChange?: (data: ContractFormData) => void;
-}> = ({ onClose, onShowPreviewChange }) => {
+  acceptedQuotes?: QuoteData[]; // Cotizaciones filtradas que ya no han sido convertidas
+}> = ({ onClose, onShowPreviewChange, acceptedQuotes }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -526,6 +535,7 @@ export const ContractFromQuoteModal: React.FC<{
             <ContractFromQuoteForm
               onBack={onClose}
               onShowPreviewChange={onShowPreviewChange}
+              acceptedQuotes={acceptedQuotes}
             />
           </div>
         </Card>

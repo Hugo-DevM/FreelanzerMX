@@ -14,6 +14,7 @@ import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
+import ErrorModal from "../shared/ErrorModal";
 import {
   ArrowLeftIcon,
   PlusIcon,
@@ -44,7 +45,6 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Form data for new task
   const [taskForm, setTaskForm] = useState({
     title: "",
     description: "",
@@ -331,14 +331,14 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     );
   }
 
-  if (error || !project) {
+  if (!project) {
     return (
       <div className="p-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8">
             <div className="text-red-600 text-6xl mb-4">⚠️</div>
             <h3 className="text-xl font-semibold text-[#1A1A1A] mb-2">
-              {error || "Proyecto no encontrado"}
+              Proyecto no encontrado
             </h3>
             <Button onClick={() => router.push("/projects")} className="mt-4">
               Volver a Proyectos
@@ -702,6 +702,13 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           onConfirm={confirmDeleteTask}
           onCancel={cancelDeleteTask}
           loading={deleting}
+        />
+
+        {/* Error Modal */}
+        <ErrorModal
+          open={!!error}
+          message={error || ""}
+          onClose={() => setError(null)}
         />
       </div>
     </div>
