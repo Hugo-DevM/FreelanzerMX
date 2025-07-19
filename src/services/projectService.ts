@@ -8,69 +8,6 @@ import {
   Contract,
 } from "../types/project";
 
-// Datos simulados de contratos para el ejemplo
-export const mockContracts: Contract[] = [
-  {
-    id: "1",
-    clientName: "TechCorp Solutions",
-    service: "Desarrollo de aplicación web",
-    amount: 15000,
-    deliverables: [
-      "Diseño de interfaz de usuario",
-      "Desarrollo frontend con React",
-      "Desarrollo backend con Node.js",
-      "Base de datos y API",
-      "Testing y documentación",
-    ],
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2024-03-15"),
-  },
-  {
-    id: "2",
-    clientName: "Marketing Digital Pro",
-    service: "Campaña de marketing digital",
-    amount: 8000,
-    deliverables: [
-      "Estrategia de marketing",
-      "Diseño de materiales gráficos",
-      "Gestión de redes sociales",
-      "Análisis de métricas",
-      "Reporte final",
-    ],
-    startDate: new Date("2024-02-01"),
-    endDate: new Date("2024-04-01"),
-  },
-  {
-    id: "3",
-    clientName: "Restaurante El Sabor",
-    service: "Diseño de identidad visual",
-    amount: 5000,
-    deliverables: [
-      "Logo y branding",
-      "Tarjetas de presentación",
-      "Menú digital",
-      "Material promocional",
-      "Guía de marca",
-    ],
-    startDate: new Date("2024-01-20"),
-    endDate: new Date("2024-02-20"),
-  },
-];
-
-// Utilidad para limpiar campos undefined de forma recursiva
-function removeUndefinedFieldsDeep(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedFieldsDeep);
-  } else if (obj && typeof obj === "object") {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, removeUndefinedFieldsDeep(v)])
-    );
-  }
-  return obj;
-}
-
 export const createProject = async (
   userId: string,
   projectData: CreateProjectData
@@ -109,7 +46,9 @@ export const getUserProjects = async (userId: string): Promise<Project[]> => {
   try {
     const { data, error } = await supabase
       .from("projects")
-      .select("*")
+      .select(
+        "id, name, description, client, status, priority, due_date, deliverables, amount, created_at, tasks"
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -127,13 +66,12 @@ export const getUserProjects = async (userId: string): Promise<Project[]> => {
       amount: project.amount,
       tasks: (project.tasks || []).map((task: any) => ({
         ...task,
-        // dueDate ya es string, no convertir
         createdAt: task.createdAt ? new Date(task.createdAt) : undefined,
         updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
       })),
       progress: calculateProgress(project.tasks || []),
       createdAt: new Date(project.created_at),
-      updatedAt: new Date(project.updated_at),
+      // updatedAt no se trae aquí
     })) as Project[];
   } catch (error: any) {
     console.error("Error getting user projects:", error);
@@ -358,13 +296,6 @@ export const getContracts = async (): Promise<Contract[]> => {
     console.error("Error getting contracts:", error);
     throw new Error("Error al obtener los contratos");
   }
-};
-
-export const getContractById = async (
-  contractId: string
-): Promise<Contract | null> => {
-  const contract = mockContracts.find((c) => c.id === contractId);
-  return contract || null;
 };
 
 const calculateProgress = (tasks: Task[]): number => {

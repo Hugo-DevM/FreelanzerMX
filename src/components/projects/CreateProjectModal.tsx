@@ -7,6 +7,7 @@ import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
+import ErrorModal from "../shared/ErrorModal";
 import { XIcon, FileTextIcon, PlusIcon } from "../ui/icons";
 
 interface CreateProjectModalProps {
@@ -28,7 +29,6 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form data
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -48,6 +48,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       setContracts(userContracts);
     } catch (err: any) {
       console.error("Error loading contracts:", err);
+      setError("Error al cargar los contratos");
     }
   };
 
@@ -135,12 +136,12 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const formatDate = (date: Date | string | undefined | null) => {
     if (!date) return "Sin fecha";
     if (typeof date === "string") {
-      return date; // Mostrar exactamente como viene de la BD: YYYY-MM-DD
+      return date;
     }
     if (date instanceof Date) {
       return `${date.getFullYear()}-${(date.getMonth() + 1)
         .toString()
-        .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`; // YYYY-MM-DD
+        .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
     }
     return String(date);
   };
@@ -221,11 +222,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           </button>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
+        {/* Error display removed - now using ErrorModal */}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {mode === "contract" && (
@@ -375,6 +372,13 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </Button>
           </div>
         </form>
+
+        {/* Error Modal */}
+        <ErrorModal
+          open={!!error}
+          message={error || ""}
+          onClose={() => setError(null)}
+        />
       </Card>
     </div>
   );

@@ -76,23 +76,43 @@ export const createQuote = async (
   }
 };
 
-export const getUserQuotes = async (userId: string): Promise<QuoteData[]> => {
+export const getUserQuotes = async (
+  userId: string,
+  limit: number = 20
+): Promise<QuoteData[]> => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    // Solo selecciona los campos necesarios para la vista principal
     const { data, error } = await supabase
       .from("quotes")
-      .select("*")
+      .select(
+        "id, client_name, services, total, status, delivery_date, created_at"
+      )
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(limit)
+      .abortSignal(controller.signal);
 
-    if (error) throw error;
+    clearTimeout(timeoutId);
 
-    return data.map((quote) => ({
+    if (error) {
+      if (error.code === "ABORT_ERR") {
+        throw new Error("Timeout: La carga tardó demasiado");
+      }
+      throw error;
+    }
+
+    return (data || []).map((quote) => ({
       ...quote,
       created_at: new Date(quote.created_at),
-      updated_at: new Date(quote.updated_at),
     })) as QuoteData[];
   } catch (error: any) {
     console.error("Error getting user quotes:", error);
+    if (error.message?.includes("Timeout")) {
+      throw new Error("Error de timeout: La carga tardó demasiado");
+    }
     throw new Error("Error al obtener las cotizaciones");
   }
 };

@@ -29,6 +29,11 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
     );
   }
 
+  // Filtrar datos válidos para el cálculo del total
+  const validData = (data || []).filter(
+    (item) => item && typeof item.amount === "number"
+  );
+
   const maxAmount = Math.max(...data.map((item) => item.amount));
   const chartWidth = 600;
   const chartHeight = 400;
@@ -99,11 +104,12 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
 
           {/* Data points */}
           {points
-            .filter(point => 
-              typeof point.x === 'number' && 
-              !isNaN(point.x) && 
-              typeof point.y === 'number' && 
-              !isNaN(point.y)
+            .filter(
+              (point) =>
+                typeof point.x === "number" &&
+                !isNaN(point.x) &&
+                typeof point.y === "number" &&
+                !isNaN(point.y)
             )
             .map((point, index) => (
               <circle
@@ -119,7 +125,7 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
 
           {/* X-axis labels */}
           {points
-            .filter(point => typeof point.x === 'number' && !isNaN(point.x))
+            .filter((point) => typeof point.x === "number" && !isNaN(point.x))
             .map((point, index) => (
               <text
                 key={index}
@@ -156,7 +162,10 @@ const WeeklyIncomeChart: React.FC<WeeklyIncomeChartProps> = ({ data }) => {
         <div className="flex justify-between items-center">
           <span className="text-sm text-[#666666]">Total del período:</span>
           <span className="text-lg font-semibold text-[#1A1A1A]">
-            ${validData.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+            $
+            {validData
+              .reduce((sum, item) => sum + item.amount, 0)
+              .toLocaleString()}
           </span>
         </div>
       </div>

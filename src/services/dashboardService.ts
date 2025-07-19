@@ -1,7 +1,4 @@
 import { DashboardData } from "../types/dashboard";
-import { getUserContracts } from "./contractService";
-import { getUserQuotes } from "./quoteService";
-import { getUserProjects } from "./projectService";
 import { supabase } from "../lib/supabase";
 
 function getMonthYear(date: Date) {
@@ -19,45 +16,140 @@ function calculateTrend(current: number, last: number) {
 export const getDashboardData = async (
   userId: string
 ): Promise<DashboardData> => {
-  const [contracts, quotes, projects] = await Promise.all([
-    getUserContracts(userId),
-    getUserQuotes(userId),
-    getUserProjects(userId),
-  ]);
+  // Fechas
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
-  // Pagos Recibidos (número de ingresos mes a mes)
+  // Contratos: contar por mes actual y anterior
+  const { count: totalContracts, error: contractsError } = await supabase
+    .from("contracts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`
+    )
+    .lte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-31`
+    );
+  const { count: contractsLastMonth, error: contractsLastError } =
+    await supabase
+      .from("contracts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte(
+        "created_at",
+        `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`
+      )
+      .lte(
+        "created_at",
+        `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-31`
+      );
+  const { trend: contractsTrend, isPositive: contractsIsPositive } =
+    calculateTrend(totalContracts || 0, contractsLastMonth || 0);
+
+  // Cotizaciones: contar por mes actual y anterior
+  const { count: quotesSent, error: quotesError } = await supabase
+    .from("quotes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`
+    )
+    .lte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-31`
+    );
+  const { count: quotesLastMonth, error: quotesLastError } = await supabase
+    .from("quotes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte(
+      "created_at",
+      `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`
+    )
+    .lte(
+      "created_at",
+      `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-31`
+    );
+  const { trend: quotesTrend, isPositive: quotesIsPositive } = calculateTrend(
+    quotesSent || 0,
+    quotesLastMonth || 0
+  );
+
+  // Proyectos activos: contar por mes actual y anterior
+  const { count: activeProjects, error: projectsError } = await supabase
+    .from("projects")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("status", ["in-progress", "pending"])
+    .gte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`
+    )
+    .lte(
+      "created_at",
+      `${currentYear}-${String(currentMonth).padStart(2, "0")}-31`
+    );
+  const { count: activeProjectsLastMonth, error: projectsLastError } =
+    await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .in("status", ["in-progress", "pending"])
+      .gte(
+        "created_at",
+        `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`
+      )
+      .lte(
+        "created_at",
+        `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-31`
+      );
+  const { trend: projectsTrend, isPositive: projectsIsPositive } =
+    calculateTrend(activeProjects || 0, activeProjectsLastMonth || 0);
+
+  // Pagos recibidos: contar por mes actual y anterior
   let paymentsReceived = 0;
   let paymentsReceivedLastMonth = 0;
   let paymentsTrend = 0;
   let paymentsIsPositive = true;
   try {
-    const { data: transactions, error } = await supabase
+    const { count: paymentsCurrent, error: paymentsError } = await supabase
       .from("transactions")
-      .select("id, tipo, fecha, user_id")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .eq("tipo", "ingreso");
-    if (error) throw error;
-    if (transactions) {
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1; // 1-12
-      const currentYear = now.getFullYear();
-      const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-      const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-      paymentsReceived = transactions.filter((t) => {
-        const [year, month] = t.fecha.split("-");
-        return Number(year) === currentYear && Number(month) === currentMonth;
-      }).length;
-      paymentsReceivedLastMonth = transactions.filter((t) => {
-        const [year, month] = t.fecha.split("-");
-        return Number(year) === lastMonthYear && Number(month) === lastMonth;
-      }).length;
-      const trendObj = calculateTrend(
-        paymentsReceived,
-        paymentsReceivedLastMonth
+      .eq("tipo", "ingreso")
+      .gte(
+        "fecha",
+        `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`
+      )
+      .lte(
+        "fecha",
+        `${currentYear}-${String(currentMonth).padStart(2, "0")}-31`
       );
-      paymentsTrend = trendObj.trend;
-      paymentsIsPositive = trendObj.isPositive;
-    }
+    const { count: paymentsLast, error: paymentsLastError } = await supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("tipo", "ingreso")
+      .gte("fecha", `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`)
+      .lte(
+        "fecha",
+        `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-31`
+      );
+    paymentsReceived = paymentsCurrent || 0;
+    paymentsReceivedLastMonth = paymentsLast || 0;
+    const trendObj = calculateTrend(
+      paymentsReceived,
+      paymentsReceivedLastMonth
+    );
+    paymentsTrend = trendObj.trend;
+    paymentsIsPositive = trendObj.isPositive;
   } catch (e) {
     paymentsReceived = 0;
     paymentsReceivedLastMonth = 0;
@@ -65,56 +157,13 @@ export const getDashboardData = async (
     paymentsIsPositive = true;
   }
 
-  // Fechas
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1; // 1-12
-  const currentYear = now.getFullYear();
-  const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-  const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-
-  // Contratos
-  const totalContracts = contracts.filter((c) => {
-    const [year, month] = c.created_at.toISOString().split("T")[0].split("-");
-    return Number(year) === currentYear && Number(month) === currentMonth;
-  }).length;
-  const contractsLastMonth = contracts.filter((c) => {
-    const [year, month] = c.created_at.toISOString().split("T")[0].split("-");
-    return Number(year) === lastMonthYear && Number(month) === lastMonth;
-  }).length;
-  const { trend: contractsTrend, isPositive: contractsIsPositive } =
-    calculateTrend(totalContracts, contractsLastMonth);
-
-  // Cotizaciones
-  const quotesSent = quotes.filter((q) => {
-    const [year, month] = q.created_at.toISOString().split("T")[0].split("-");
-    return Number(year) === currentYear && Number(month) === currentMonth;
-  }).length;
-  const quotesLastMonth = quotes.filter((q) => {
-    const [year, month] = q.created_at.toISOString().split("T")[0].split("-");
-    return Number(year) === lastMonthYear && Number(month) === lastMonth;
-  }).length;
-  const { trend: quotesTrend, isPositive: quotesIsPositive } = calculateTrend(
-    quotesSent,
-    quotesLastMonth
-  );
-
-  // Proyectos activos
-  const activeProjects = projects.filter(
-    (p) =>
-      (p.status === "in-progress" || p.status === "pending") &&
-      p.createdAt.getFullYear() === currentYear &&
-      p.createdAt.getMonth() + 1 === currentMonth
-  ).length;
-  const activeProjectsLastMonth = projects.filter(
-    (p) =>
-      (p.status === "in-progress" || p.status === "pending") &&
-      p.createdAt.getFullYear() === lastMonthYear &&
-      p.createdAt.getMonth() + 1 === lastMonth
-  ).length;
-  const { trend: projectsTrend, isPositive: projectsIsPositive } =
-    calculateTrend(activeProjects, activeProjectsLastMonth);
-
   // Trabajos recientes: últimos 5 proyectos
+  const { data: recentProjects, error: recentProjectsError } = await supabase
+    .from("projects")
+    .select("id, client, amount, status, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(5);
   const mapProjectStatus = (
     status: string
   ): "pending" | "in_progress" | "completed" | "cancelled" => {
@@ -129,12 +178,12 @@ export const getDashboardData = async (
         return "pending";
     }
   };
-  const recentWorks = projects.slice(0, 5).map((p, idx) => ({
-    id: idx + 1,
+  const recentWorks = (recentProjects || []).map((p: any, idx: number) => ({
+    id: p.id,
     client: p.client,
-    amount: p.amount || 0, // Usar el monto real del proyecto
+    amount: p.amount || 0,
     state: mapProjectStatus(p.status),
-    date: p.createdAt.toISOString().split("T")[0],
+    date: p.created_at.split("T")[0],
   }));
 
   // Obtener ingresos y egresos de la tabla transactions para los gráficos
@@ -210,17 +259,17 @@ export const getDashboardData = async (
 
   return {
     metrics: {
-      totalContracts,
+      totalContracts: totalContracts || 0,
       contractsTrend,
       contractsIsPositive,
-      quotesSent,
+      quotesSent: quotesSent || 0,
       quotesTrend,
       quotesIsPositive,
       paymentsReceived, // ingresos del mes actual
       paymentsTrend, // variación mes a mes
       paymentsIsPositive,
       paymentsReceivedLastMonth, // <-- lo agrego aquí
-      activeProjects,
+      activeProjects: activeProjects || 0,
       projectsTrend,
       projectsIsPositive,
     },
