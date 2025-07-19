@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
@@ -54,12 +54,15 @@ export default function FinancesComponent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (!loading && !fetched) {
-      fetchData();
+      startTransition(() => {
+        fetchData();
+      });
     }
-  }, [loading, fetched, fetchData]);
+  }, [loading, fetched, fetchData, startTransition]);
 
   useEffect(() => {
     if (user) {

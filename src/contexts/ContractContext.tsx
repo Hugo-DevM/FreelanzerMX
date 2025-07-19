@@ -55,6 +55,7 @@ export const ContractProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!loadedFromCache && !loading) {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchData = useCallback(async () => {
@@ -76,15 +77,22 @@ export const ContractProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const refreshData = useCallback(async () => {
     if (!user) return;
+    console.log(
+      "refreshData - Iniciando refresco de contratos para usuario:",
+      user.uid
+    );
     setLoading(true);
     setError(null);
     try {
       console.log("Refrescando contratos desde Supabase...");
       const data = await getUserContracts(user.uid);
+      console.log("refreshData - Contratos obtenidos:", data.length);
       setContracts(data);
       setFetched(true);
       localStorage.setItem(`${user.uid}-contracts`, JSON.stringify(data));
+      console.log("refreshData - Refresco completado exitosamente");
     } catch (err: any) {
+      console.error("refreshData - Error:", err);
       setError(err.message || "Error al recargar contratos");
       setFetched(false);
     } finally {

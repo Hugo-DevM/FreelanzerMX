@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Project } from "../../types/project";
-import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { EyeIcon } from "../ui/icons";
 
