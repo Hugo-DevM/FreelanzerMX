@@ -1,40 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useQuotes } from "../../contexts/QuoteContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
-import dynamic from "next/dynamic";
 import {
   QuoteData,
   updateQuoteStatus,
   deleteQuote,
+  getQuote,
 } from "../../services/quoteService";
 import ConfirmModal from "../ui/ConfirmModal";
 import ErrorModal from "../shared/ErrorModal";
 import { supabase } from "../../lib/supabase";
 import { PlusIcon, EyeIcon } from "lucide-react";
-
-// Lazy load de componentes pesados
-const QuoteForm = dynamic(() => import("./QuoteForm"), {
-  loading: () => (
-    <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9ae600]"></div>
-      <span className="ml-3 text-[#666666]">Cargando formulario...</span>
-    </div>
-  ),
-  ssr: false,
-});
-
-const QuotePreview = dynamic(() => import("./QuotePreview"), {
-  loading: () => (
-    <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9ae600]"></div>
-      <span className="ml-3 text-[#666666]">Cargando vista previa...</span>
-    </div>
-  ),
-  ssr: false,
-});
+import QuoteForm from "./QuoteForm";
+import QuotePreview from "./QuotePreview";
+import { QuoteTableSkeleton } from "../ui/SkeletonLoader";
 
 // Corrige desfase de fechas por zona horaria
 const parseLocalDate = (dateString: string) => {
@@ -43,13 +25,27 @@ const parseLocalDate = (dateString: string) => {
 };
 
 export default function QuotesComponent() {
-  const { quotes, loading, error, fetched, fetchData, refreshData } =
-    useQuotes();
+  const { quotes, loading, error, refreshData } = useQuotes();
   const [showForm, setShowForm] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<QuoteData | null>(null);
   const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isPending] = useTransition();
+  const [optimisticQuotes, setOptimisticQuotes] = useState<QuoteData[]>([]);
+  const [updatingQuotes, setUpdatingQuotes] = useState<Set<string>>(new Set());
+
+  // Sincronizar estado optimista con cotizaciones reales solo en la carga inicial
+  useEffect(() => {
+    if (quotes.length > 0 && optimisticQuotes.length === 0) {
+      setOptimisticQuotes(quotes);
+    } else if (quotes.length === 0 && !loading && optimisticQuotes.length > 0) {
+      setOptimisticQuotes([]);
+    } else if (quotes.length > optimisticQuotes.length) {
+      // Si hay nuevas cotizaciones, agregarlas al estado optimista
+      setOptimisticQuotes(quotes);
+    }
+  }, [quotes, loading, optimisticQuotes.length]);
 
   // SUSCRIPCIÓN REALTIME
   useEffect(() => {
@@ -77,13 +73,52 @@ export default function QuotesComponent() {
     quoteId: string,
     newStatus: "draft" | "sent" | "approved" | "rejected"
   ) => {
+    console.log(
+      "handleStatusChange - Iniciando cambio de estado:",
+      quoteId,
+      "a:",
+      newStatus
+    );
+
     try {
+      // Marcar como actualizando
+      setUpdatingQuotes((prev) => new Set(prev).add(quoteId));
+
+      // Actualización optimista: actualizar el estado local inmediatamente
+      const updatedQuotes = optimisticQuotes.map((quote) =>
+        quote.id === quoteId ? { ...quote, status: newStatus } : quote
+      );
+      setOptimisticQuotes(updatedQuotes);
+      console.log("handleStatusChange - Estado optimista actualizado");
+
+      // Actualizar en la base de datos en segundo plano
+      console.log("handleStatusChange - Actualizando en base de datos...");
       await updateQuoteStatus(quoteId, newStatus);
-      // Refrescar datos después de actualizar
-      await refreshData();
+      console.log(
+        "handleStatusChange - Base de datos actualizada exitosamente"
+      );
+
+      // Remover del estado de actualización
+      setUpdatingQuotes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(quoteId);
+        return newSet;
+      });
+
+      // No refrescar datos para evitar parpadeo - el estado optimista ya está correcto
     } catch (error) {
-      console.error("Error updating quote status:", error);
+      console.error("handleStatusChange - Error:", error);
       setLocalError("Error al actualizar el estado de la cotización");
+      // Revertir el cambio en caso de error
+      setOptimisticQuotes(quotes);
+      // Remover del estado de actualización
+      setUpdatingQuotes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(quoteId);
+        return newSet;
+      });
+      // Refrescar datos para asegurar sincronización
+      refreshData();
     }
   };
 
@@ -113,6 +148,24 @@ export default function QuotesComponent() {
 
   const handleDeleteFromPreview = async (quoteId: string) => {
     setQuoteToDelete(quoteId);
+  };
+
+  const handleViewQuote = async (quoteId: string) => {
+    console.log("handleViewQuote llamado con ID:", quoteId);
+    try {
+      const fullQuoteData = await getQuote(quoteId);
+      console.log("Datos obtenidos:", fullQuoteData);
+      if (fullQuoteData) {
+        setSelectedQuote(fullQuoteData);
+        console.log("selectedQuote establecido");
+      } else {
+        console.log("No se encontraron datos para la cotización");
+        setLocalError("No se pudo cargar la cotización");
+      }
+    } catch (error) {
+      console.error("Error loading quote:", error);
+      setLocalError("Error al cargar la cotización");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -188,6 +241,7 @@ export default function QuotesComponent() {
   }
 
   if (selectedQuote) {
+    console.log("Renderizando QuotePreview con:", selectedQuote);
     return (
       <div className="w-full p-6">
         <QuotePreview
@@ -256,11 +310,8 @@ export default function QuotesComponent() {
           </Button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9ae600] mx-auto"></div>
-            <p className="text-[#666666] mt-4">Cargando cotizaciones...</p>
-          </div>
+        {loading || isPending ? (
+          <QuoteTableSkeleton />
         ) : error ? (
           <Card>
             <div className="text-center py-12">
@@ -269,10 +320,12 @@ export default function QuotesComponent() {
                 Error al cargar cotizaciones
               </h3>
               <p className="text-[#666666] mb-6">{error}</p>
-              <Button onClick={fetchData}>Reintentar</Button>
+              <Button onClick={() => window.location.reload()}>
+                Reintentar
+              </Button>
             </div>
           </Card>
-        ) : !quotes || quotes.length === 0 ? (
+        ) : !optimisticQuotes || optimisticQuotes.length === 0 ? (
           <Card>
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📄</div>
@@ -295,7 +348,7 @@ export default function QuotesComponent() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 justify-center">
-              {quotes.map((quote) => (
+              {optimisticQuotes.map((quote) => (
                 <Card
                   key={quote.id}
                   className="max-w-md p-6 bg-gradient-to-br from-[#f8fafc] to-[#e0e7ef] border border-[#e5e7eb] shadow-lg hover:shadow-2xl transition-shadow duration-200"
@@ -307,9 +360,14 @@ export default function QuotesComponent() {
                     <span
                       className={`text-sm font-medium ${getStatusColor(
                         quote.status
-                      )}`}
+                      )} ${
+                        updatingQuotes.has(quote.id) ? "animate-pulse" : ""
+                      }`}
                     >
                       {getStatusText(quote.status)}
+                      {updatingQuotes.has(quote.id) && (
+                        <span className="ml-1 text-xs">⏳</span>
+                      )}
                     </span>
                   </div>
 
@@ -352,7 +410,10 @@ export default function QuotesComponent() {
                             | "rejected"
                         )
                       }
-                      className="custom-select"
+                      className={`custom-select ${
+                        updatingQuotes.has(quote.id) ? "opacity-75" : ""
+                      }`}
+                      disabled={updatingQuotes.has(quote.id)}
                     >
                       <option value="draft">Borrador</option>
                       <option value="sent">Enviada</option>
@@ -362,7 +423,7 @@ export default function QuotesComponent() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setSelectedQuote(quote)}
+                      onClick={() => handleViewQuote(quote.id)}
                       className="flex items-center gap-1"
                     >
                       <EyeIcon size={16} />

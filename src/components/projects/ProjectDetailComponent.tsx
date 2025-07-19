@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Project, Task, CreateTaskData } from "../../types/project";
 import {
@@ -10,18 +10,13 @@ import {
   deleteTask,
   updateProject,
 } from "../../services/projectService";
+import { supabase } from "../../lib/supabase";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
 import ErrorModal from "../shared/ErrorModal";
-import {
-  ArrowLeftIcon,
-  PlusIcon,
-  EditIcon,
-  TrashIcon,
-  CheckIcon,
-} from "../ui/icons";
+import { ArrowLeftIcon, PlusIcon, TrashIcon, CheckIcon } from "../ui/icons";
 import ConfirmModal from "../ui/ConfirmModal";
 
 interface ProjectDetailComponentProps {
@@ -39,7 +34,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [showAddTask, setShowAddTask] = useState(false);
-  const [editingTask, setEditingTask] = useState<string | null>(null);
+  // const [editingTask, setEditingTask] = useState<string | null>(null);
   const [progressAnimated, setProgressAnimated] = useState(0);
   const progressRef = useRef<number>(0);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
@@ -54,27 +49,93 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
 
   useEffect(() => {
     loadProject();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Suscripción en tiempo real para cambios en el proyecto
+  useEffect(() => {
+    if (!projectId) return;
+
+    console.log(
+      "🔔 Configurando suscripción en tiempo real para proyecto:",
+      projectId
+    );
+
+    // Suscripción a cambios en el proyecto (incluye cambios en tareas ya que están en el mismo documento)
+    const projectSubscription = supabase
+      .channel(`project-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "projects",
+          filter: `id=eq.${projectId}`,
+        },
+        async (payload) => {
+          console.log("📡 Cambio detectado en proyecto:", payload);
+          if (payload.new) {
+            try {
+              // Recargar el proyecto completo para obtener los datos más recientes
+              const updatedProject = await getProject(projectId);
+              if (updatedProject) {
+                console.log(
+                  "🔄 Actualizando proyecto con datos frescos:",
+                  updatedProject
+                );
+                setProject(updatedProject);
+              }
+            } catch (error) {
+              console.error("Error recargando proyecto:", error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("🔕 Desuscribiendo de cambios en tiempo real");
+      projectSubscription.unsubscribe();
+    };
   }, [projectId]);
 
   useEffect(() => {
     if (project) {
+      console.log(
+        "🎬 Iniciando animación - Progreso actual:",
+        project.progress
+      );
+
+      // Inicializar el valor de referencia si es la primera vez
+      if (progressRef.current === 0 && project.progress > 0) {
+        progressRef.current = 0;
+      }
+
       // Animar la barra de progreso
       let frame: number;
       const animate = () => {
         if (progressRef.current !== project.progress) {
           const diff = project.progress - progressRef.current;
-          progressRef.current += diff * 0.2; // velocidad de animación
+          progressRef.current += diff * 0.3; // velocidad de animación más rápida
           if (Math.abs(diff) < 0.5) {
             progressRef.current = project.progress;
           } else {
             frame = requestAnimationFrame(animate);
           }
-          setProgressAnimated(Math.round(progressRef.current * 10) / 10);
+          const newProgressAnimated = Math.round(progressRef.current * 10) / 10;
+          console.log(
+            "🎯 Animación - Valor actual:",
+            progressRef.current,
+            "Animado:",
+            newProgressAnimated
+          );
+          setProgressAnimated(newProgressAnimated);
         }
       };
       animate();
       return () => cancelAnimationFrame(frame);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.progress]);
 
   const loadProject = async () => {
@@ -159,39 +220,21 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
-  const handleUpdateTaskStatus = async (
-    taskId: string,
-    status: Task["status"]
-  ) => {
-    if (!project) return;
-    try {
-      const updatedTasks = project.tasks.map((task) =>
-        task.id === taskId ? { ...task, status, updatedAt: new Date() } : task
-      );
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress = Math.round((doneCount / updatedTasks.length) * 100);
-      // Cambia el estado automáticamente
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
+  const handleUpdateTaskStatus = useCallback(
+    async (taskId: string, status: Task["status"]) => {
+      console.log("🔄 Actualizando tarea:", taskId, "a estado:", status);
+
+      try {
+        // El servicio updateTask ahora maneja todo: actualizar tarea, progreso y estado
+        await updateTask(projectId, taskId, { status });
+        console.log("✅ Tarea actualizada exitosamente");
+      } catch (error) {
+        console.error("Error updating task:", error);
+        setError("Error al actualizar la tarea");
       }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
-      await updateTask(projectId, taskId, { status });
-      await updateProject(projectId, { status: newStatus, progress });
-    } catch (err: any) {
-      console.error("Error updating task:", err);
-      setError(err.message || "Error al actualizar la tarea");
-    }
-  };
+    },
+    [projectId]
+  );
 
   const handleDeleteTask = async (taskId: string) => {
     setDeleteTaskId(taskId);
@@ -318,6 +361,13 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
+  console.log(
+    "🎨 Renderizando componente - Progreso:",
+    project?.progress,
+    "Animado:",
+    progressAnimated
+  );
+
   if (loading) {
     return (
       <div className="p-4">
@@ -439,14 +489,20 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                   <span className="text-sm font-medium text-[#666666]">
                     Progreso General
                   </span>
-                  <span className="text-sm font-medium text-[#1A1A1A]">
-                    {project.progress}%
+                  <span className="text-sm font-medium text-[#1A1A1A] transition-all duration-300">
+                    {progressAnimated}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div
-                    className="bg-[#9ae600] h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${progressAnimated}%` }}
+                    className="bg-[#9ae600] h-3 rounded-full transition-all duration-300 ease-out shadow-sm"
+                    style={{
+                      width: `${progressAnimated}%`,
+                      boxShadow:
+                        progressAnimated > 0
+                          ? "0 0 8px rgba(154, 230, 0, 0.3)"
+                          : "none",
+                    }}
                   ></div>
                 </div>
               </div>
@@ -531,10 +587,10 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                                     task.status === "done" ? "todo" : "done"
                                   )
                                 }
-                                className={`p-1 rounded ${
+                                className={`p-1 rounded transition-all duration-200 ${
                                   task.status === "done"
-                                    ? "bg-green-100 text-green-600"
-                                    : "bg-gray-100 text-gray-400"
+                                    ? "bg-green-100 text-green-600 scale-110"
+                                    : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                                 }`}
                               >
                                 <CheckIcon size={16} />
@@ -569,12 +625,6 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setEditingTask(task.id)}
-                              className="p-1 text-[#666666] hover:text-[#1A1A1A]"
-                            >
-                              <EditIcon size={16} />
-                            </button>
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               className="p-1 text-red-500 hover:text-red-700"

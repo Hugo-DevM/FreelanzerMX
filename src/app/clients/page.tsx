@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuthContext } from "../../contexts/AuthContext";
 import ProtectedRoute from "../../components/auth/ProtectedRoute";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import Card from "../../components/ui/Card";
@@ -21,7 +20,9 @@ function ClientsContent() {
                 <span className="text-white font-semibold">TC</span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#1A1A1A]">TechCorp Solutions</h3>
+                <h3 className="text-lg font-semibold text-[#1A1A1A]">
+                  TechCorp Solutions
+                </h3>
                 <p className="text-[#666666]">techcorp@email.com</p>
               </div>
             </div>
@@ -33,7 +34,9 @@ function ClientsContent() {
                 <span className="text-white font-semibold">DI</span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#1A1A1A]">Digital Innovations</h3>
+                <h3 className="text-lg font-semibold text-[#1A1A1A]">
+                  Digital Innovations
+                </h3>
                 <p className="text-[#666666]">info@digitalinnovations.com</p>
               </div>
             </div>
@@ -45,7 +48,9 @@ function ClientsContent() {
                 <span className="text-white font-semibold">GS</span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#1A1A1A]">Global Systems Inc</h3>
+                <h3 className="text-lg font-semibold text-[#1A1A1A]">
+                  Global Systems Inc
+                </h3>
                 <p className="text-[#666666]">contact@globalsystems.com</p>
               </div>
             </div>
@@ -64,4 +69,4 @@ export default function ClientsPage() {
       </DashboardLayout>
     </ProtectedRoute>
   );
-} 
+}

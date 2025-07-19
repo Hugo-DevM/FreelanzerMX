@@ -150,7 +150,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
                 : 0
               ).toLocaleString("es-MX")}
             </b>{" "}
-            {currency}, pagaderos de la siguiente manera:
+            {currency || "MXN"}, pagaderos de la siguiente manera:
             <br />
             {paymentMethod}
           </p>

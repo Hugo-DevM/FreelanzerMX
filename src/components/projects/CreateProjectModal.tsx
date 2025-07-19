@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Contract, CreateProjectData } from "../../types/project";
 import { createProject, getContracts } from "../../services/projectService";
+import {
+  canCreateProject,
+  getProjectLimit,
+  getUserPlan,
+} from "../../services/userService";
+import { supabase } from "../../lib/supabase";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
@@ -28,6 +34,9 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [selectedContract, setSelectedContract] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
+  const [projectCount, setProjectCount] = useState(0);
+  const [canCreate, setCanCreate] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -40,7 +49,30 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   useEffect(() => {
     loadContracts();
-  }, []);
+    loadUserPlanInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const loadUserPlanInfo = async () => {
+    try {
+      const plan = await getUserPlan(userId);
+      const canCreateProjects = await canCreateProject(userId);
+
+      // Obtener el número actual de proyectos
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+
+      const currentProjectCount = projects?.length || 0;
+
+      setUserPlan(plan);
+      setProjectCount(currentProjectCount);
+      setCanCreate(canCreateProjects);
+    } catch (error) {
+      console.error("Error loading user plan info:", error);
+    }
+  };
 
   const loadContracts = async () => {
     try {
@@ -90,6 +122,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setError(null);
 
     try {
+      // Verificar si el usuario puede crear más proyectos
+      const canCreate = await canCreateProject(userId);
+      if (!canCreate) {
+        const userPlan = await getUserPlan(userId);
+        const projectLimit = getProjectLimit(userPlan);
+        setError(
+          `Has alcanzado el límite de ${projectLimit} proyectos en tu plan ${userPlan}. Actualiza tu plan para crear más proyectos.`
+        );
+        return;
+      }
+
       const projectData: CreateProjectData = {
         name: formData.name,
         description: formData.description,
@@ -167,10 +210,34 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </button>
           </div>
 
+          {/* Información del plan */}
+          {userPlan === "free" && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <span className="text-sm font-medium">
+                  Plan Gratuito: {projectCount}/2 proyectos
+                </span>
+                {!canCreate && (
+                  <span className="text-xs bg-yellow-200 px-2 py-1 rounded">
+                    Límite alcanzado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-yellow-700 mt-1">
+                Actualiza a Premium para proyectos ilimitados
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <button
               onClick={() => setMode("contract")}
-              className="w-full p-4 border-2 border-dashed border-[#9ae600] rounded-lg hover:bg-[#9ae600] hover:bg-opacity-10 transition-colors text-left group"
+              disabled={!canCreate}
+              className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors text-left group ${
+                canCreate
+                  ? "border-[#9ae600] hover:bg-[#9ae600] hover:bg-opacity-10"
+                  : "border-gray-300 bg-gray-50 cursor-not-allowed"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <FileTextIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />
@@ -187,7 +254,12 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
             <button
               onClick={() => setMode("scratch")}
-              className="w-full p-4 border-2 border-dashed border-[#9ae600] rounded-lg hover:bg-[#9ae600] hover:bg-opacity-10 transition-colors text-left group"
+              disabled={!canCreate}
+              className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors text-left group ${
+                canCreate
+                  ? "border-[#9ae600] hover:bg-[#9ae600] hover:bg-opacity-10"
+                  : "border-gray-300 bg-gray-50 cursor-not-allowed"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <PlusIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />

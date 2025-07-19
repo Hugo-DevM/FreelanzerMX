@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { useContracts } from "../../contexts/ContractContext";
 import { getUserQuotes, QuoteData } from "../../services/quoteService";
 import {
@@ -18,17 +18,7 @@ import { ContractFromQuoteModal } from "./ContractForm";
 import ContractPreview from "./ContractPreview";
 import { supabase } from "../../lib/supabase";
 import { Card } from "../ui";
-import dynamic from "next/dynamic";
-
-const ContractForm = dynamic(() => import("./ContractForm"), {
-  loading: () => (
-    <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9ae600]"></div>
-      <span className="ml-3 text-[#666666]">Cargando formulario...</span>
-    </div>
-  ),
-  ssr: false,
-});
+import ContractForm from "./ContractForm";
 
 const parseLocalDate = (dateString: string) => {
   const [year, month, day] = dateString.split("-").map(Number);
@@ -36,7 +26,7 @@ const parseLocalDate = (dateString: string) => {
 };
 
 const ContractsComponent: React.FC = () => {
-  const { contracts, loading, error, fetched, fetchData, refreshData } =
+  const { contracts, loading, fetched, fetchData, refreshData } =
     useContracts();
   const { user } = useAuthContext();
   const [showForm, setShowForm] = useState(false);
@@ -53,13 +43,16 @@ const ContractsComponent: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [componentError, setComponentError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  // useEffect seguro para cargar datos si no se han cargado
+  // useEffect con useTransition para evitar bloqueos en el render
   useEffect(() => {
     if (!loading && !fetched) {
-      fetchData();
+      startTransition(() => {
+        fetchData();
+      });
     }
-  }, [loading, fetched, fetchData]);
+  }, [loading, fetched, fetchData, startTransition]);
 
   const loadAcceptedQuotes = async () => {
     if (!user) return;
@@ -77,6 +70,7 @@ const ContractsComponent: React.FC = () => {
       );
       console.log("IDs de cotizaciones convertidas:", convertedIds);
       console.log("Cotizaciones convertidas encontradas:", convertedIds.length);
+      // eslint-disable-next-line no-unused-vars
       setConvertedQuoteIds(convertedIds);
       const filteredQuotes = quotes.filter(
         (q) => q.status === "approved" && !convertedIds.includes(q.id)
@@ -101,6 +95,7 @@ const ContractsComponent: React.FC = () => {
     if (user) {
       loadAcceptedQuotes();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // SUSCRIPCIÓN REALTIME
@@ -135,22 +130,33 @@ const ContractsComponent: React.FC = () => {
         setComponentError("Debes iniciar sesión para crear un contrato.");
         return;
       }
+
+      console.log("Iniciando guardado de contrato...");
+      console.log("Datos a guardar:", previewData);
+
       setSaving(true);
       setSaveError(null);
       try {
-        await createContract({
+        const contractData = {
           user_id: user.uid,
           freelancer_name: previewData.freelancerName,
           client_name: previewData.clientName,
           service: previewData.service,
           amount: previewData.amount,
-          currency: previewData.currency,
+          currency: previewData.currency || "MXN",
           payment_method: previewData.paymentMethod,
           start_date: previewData.startDate,
           delivery_date: previewData.deliveryDate,
           city: previewData.city,
           quote_id: previewData.quoteId,
-        });
+        };
+
+        console.log("Datos del contrato a crear:", contractData);
+        console.log("previewData.currency:", previewData.currency);
+
+        const contractId = await createContract(contractData);
+        console.log("Contrato creado exitosamente con ID:", contractId);
+
         setSaveSuccess(true);
         setTimeout(() => {
           setSaveSuccess(false);
@@ -159,10 +165,12 @@ const ContractsComponent: React.FC = () => {
           setShowFromQuote(false);
           setShowCreationModal(false);
           setSelectedQuote(null);
+          setPreviewData(null);
           refreshData();
           loadAcceptedQuotes(); // Recargar las cotizaciones para actualizar la lista
         }, 1200);
       } catch (e: any) {
+        console.error("Error al guardar contrato:", e);
         setSaveError(e.message || "Error al guardar el contrato");
       } finally {
         setSaving(false);
@@ -217,10 +225,26 @@ const ContractsComponent: React.FC = () => {
         </div>
         {showForm ? (
           <ContractForm
-            initialData={previewData || undefined}
+            initialData={
+              selectedQuote
+                ? {
+                    freelancerName: selectedQuote.freelancer_name,
+                    clientName: selectedQuote.client_name,
+                    service: selectedQuote.services
+                      .map((s) => s.description)
+                      .join(", "),
+                    amount: selectedQuote.total,
+                    currency: selectedQuote.currency || "MXN",
+                    paymentMethod: selectedQuote.payment_terms || "",
+                    city: selectedQuote.city,
+                    quoteId: selectedQuote.id,
+                  }
+                : undefined
+            }
             onBack={() => {
               setShowForm(false);
               setSelectedQuote(null);
+              setPreviewData(null);
               refreshData();
             }}
             onShowPreviewChange={(data: any) => {
@@ -372,6 +396,7 @@ const ContractsComponent: React.FC = () => {
                 setShowFromQuote(true);
                 setShowForm(false);
                 setSelectedQuote(null);
+                setPreviewData(null);
                 setShowCreationModal(false);
               },
             },
@@ -385,6 +410,7 @@ const ContractsComponent: React.FC = () => {
                 setShowForm(true);
                 setShowFromQuote(false);
                 setSelectedQuote(null);
+                setPreviewData(null);
                 setShowCreationModal(false);
               },
             },

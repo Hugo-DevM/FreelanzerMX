@@ -1,27 +1,63 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useProjects } from "../../contexts/ProjectContext";
 import { useAuthContext } from "../../contexts/AuthContext";
+import {
+  canCreateProject,
+  getProjectLimit,
+  getUserPlan,
+} from "../../services/userService";
 import Button from "../ui/Button";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
 import ErrorModal from "../shared/ErrorModal";
 import { PlusIcon } from "../ui/icons";
 import { Card } from "../ui";
+import { ProjectListSkeleton } from "../ui/SkeletonLoader";
 
 const ProjectsComponent: React.FC = () => {
   const { projects, loading, error, fetched, fetchData, refreshData } =
     useProjects();
   const { user } = useAuthContext();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [canCreate, setCanCreate] = useState(true);
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
+  const [projectLimit, setProjectLimit] = useState(2);
 
-  // useEffect seguro para cargar datos si no se han cargado
+  // useEffect con useTransition para evitar bloqueos en el render
   useEffect(() => {
     if (!loading && !fetched) {
-      fetchData();
+      startTransition(() => {
+        fetchData();
+      });
     }
-  }, [loading, fetched, fetchData]);
+  }, [loading, fetched, fetchData, startTransition]);
+
+  // Cargar información del plan del usuario
+  useEffect(() => {
+    if (user?.uid) {
+      loadUserPlanInfo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  const loadUserPlanInfo = async () => {
+    if (!user?.uid) return;
+
+    try {
+      const plan = await getUserPlan(user.uid);
+      const canCreateProjects = await canCreateProject(user.uid);
+      const limit = getProjectLimit(plan);
+
+      setUserPlan(plan);
+      setCanCreate(canCreateProjects);
+      setProjectLimit(limit);
+    } catch (error) {
+      console.error("Error loading user plan info:", error);
+    }
+  };
 
   const handleCreateProject = () => setShowCreateModal(true);
 
@@ -60,12 +96,26 @@ const ProjectsComponent: React.FC = () => {
     }
   };
 
-  if (loading) {
+  // Render progresivo: mostrar skeleton inmediatamente si está cargando
+  if (loading || isPending) {
     return (
-      <div className="p-4 w-full">
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9ae600] mx-auto"></div>
-          <p className="text-[#666666] mt-4">Cargando proyectos...</p>
+      <div className="w-full p-6">
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-[#1A1A1A]">Proyectos</h1>
+              <p className="text-[#666666]">Gestiona tus proyectos activos</p>
+            </div>
+            <Button
+              onClick={handleCreateProject}
+              className="flex items-center gap-2"
+              disabled={isPending}
+            >
+              <PlusIcon />
+              Crear Proyecto
+            </Button>
+          </div>
+          <ProjectListSkeleton />
         </div>
       </div>
     );
@@ -79,13 +129,21 @@ const ProjectsComponent: React.FC = () => {
             <h1 className="text-3xl font-bold text-[#1A1A1A]">Proyectos</h1>
             <p className="text-[#666666]">Gestiona tus proyectos activos</p>
           </div>
-          <Button
-            onClick={handleCreateProject}
-            className="flex items-center gap-2"
-          >
-            <PlusIcon />
-            Crear Proyecto
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            {userPlan === "free" && (
+              <div className="text-xs text-gray-600">
+                {projects.length}/{projectLimit} proyectos
+              </div>
+            )}
+            <Button
+              onClick={handleCreateProject}
+              className="flex items-center gap-2"
+              disabled={!canCreate}
+            >
+              <PlusIcon />
+              {canCreate ? "Crear Proyecto" : "Límite Alcanzado"}
+            </Button>
+          </div>
         </div>
         {projects.length === 0 ? (
           <Card>

@@ -84,11 +84,11 @@ export const getUserQuotes = async (
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    // Solo selecciona los campos necesarios para la vista principal
+    // Seleccionar todos los campos necesarios para la vista principal
     const { data, error } = await supabase
       .from("quotes")
       .select(
-        "id, client_name, services, total, status, delivery_date, created_at"
+        "id, client_name, freelancer_name, services, total, status, delivery_date, created_at, city, payment_terms, validity, delivery_time"
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -182,12 +182,27 @@ export const updateQuoteStatus = async (
   status: QuoteData["status"]
 ): Promise<void> => {
   try {
-    const { error } = await supabase
+    console.log(
+      "updateQuoteStatus - Actualizando cotización:",
+      quoteId,
+      "a estado:",
+      status
+    );
+
+    const { data, error } = await supabase
       .from("quotes")
       .update({ status })
-      .eq("id", quoteId);
+      .eq("id", quoteId)
+      .select("id, status");
 
-    if (error) throw error;
+    console.log("updateQuoteStatus - Respuesta de Supabase:", { data, error });
+
+    if (error) {
+      console.error("updateQuoteStatus - Error de Supabase:", error);
+      throw error;
+    }
+
+    console.log("updateQuoteStatus - Estado actualizado exitosamente");
   } catch (error: any) {
     console.error("Error updating quote status:", error);
     throw new Error(

@@ -36,13 +36,51 @@ export const createContract = async (
   contractData: CreateContractData
 ): Promise<string> => {
   try {
+    console.log("createContract - Datos recibidos:", contractData);
+
+    // Verificar que todos los campos requeridos estén presentes
+    const requiredFields = [
+      "user_id",
+      "freelancer_name",
+      "client_name",
+      "service",
+      "amount",
+      "currency",
+      "payment_method",
+      "start_date",
+      "delivery_date",
+      "city",
+    ]; // quote_id es opcional
+
+    const missingFields = requiredFields.filter((field) => {
+      const value = contractData[field as keyof CreateContractData];
+      return value === undefined || value === null || value === "";
+    });
+
+    if (missingFields.length > 0) {
+      throw new Error(`Campos faltantes: ${missingFields.join(", ")}`);
+    }
+
+    // Filtrar campos opcionales que estén vacíos
+    const cleanContractData = { ...contractData };
+    if (!cleanContractData.quote_id || cleanContractData.quote_id === "") {
+      delete cleanContractData.quote_id;
+    }
+
     const { data, error } = await supabase
       .from("contracts")
-      .insert([contractData])
+      .insert([cleanContractData])
       .select("id")
       .single();
 
-    if (error) throw error;
+    console.log("createContract - Respuesta de Supabase:", { data, error });
+
+    if (error) {
+      console.error("createContract - Error de Supabase:", error);
+      throw error;
+    }
+
+    console.log("createContract - Contrato creado exitosamente:", data);
     return data.id;
   } catch (error: any) {
     console.error("Error creating contract:", error);

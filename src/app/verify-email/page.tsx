@@ -2,11 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import Logo from "../../components/ui/Logo";
-import { EmailIcon, CheckIcon, ArrowLeftIcon } from "../../components/ui/icons";
+import { EmailIcon, CheckIcon } from "../../components/ui/icons";
 import { supabase } from "../../lib/supabase";
 
 const VerifyEmailPage: React.FC = () => {
