@@ -14,6 +14,13 @@ export interface AuthFormData {
   confirmPassword?: string;
 }
 
+export interface PasswordValidationResult {
+  isValid: boolean;
+  errors: string[];
+  strength: 'weak' | 'medium' | 'strong';
+  score: number; // 0-100
+}
+
 export interface SignUpFormData extends AuthFormData {
   firstName: string;
   lastName: string;
