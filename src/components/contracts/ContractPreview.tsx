@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { ContractFormData } from "./ContractForm";
 import { downloadContractPDF } from "../../services/pdfService";
+import { getFreelancerObligations } from "../../services/obligationsService";
 
 interface ContractPreviewProps {
   contractData: ContractFormData;
@@ -28,6 +29,35 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
     deliveryDate,
     city,
   } = contractData;
+
+  const [obligations, setObligations] = useState<string[]>([]);
+  const [loadingObligations, setLoadingObligations] = useState(true);
+
+  useEffect(() => {
+    const loadObligations = async () => {
+      try {
+        setLoadingObligations(true);
+        const serviceObligations = await getFreelancerObligations(service);
+        setObligations(serviceObligations);
+      } catch (error) {
+        console.error("Error loading obligations:", error);
+        // Fallback a obligaciones genéricas
+        setObligations([
+          `Ejecutar el servicio de "${service}" de manera profesional y eficiente.`,
+          "Cumplir con todos los entregables acordados en el contrato.",
+          "Mantener estándares de calidad profesionales en todo el trabajo realizado.",
+          "Entregar el trabajo dentro del plazo establecido.",
+          "Realizar hasta dos rondas de ajustes menores sin costo adicional.",
+        ]);
+      } finally {
+        setLoadingObligations(false);
+      }
+    };
+
+    if (service) {
+      loadObligations();
+    }
+  }, [service]);
 
   const handleDownloadPDF = () => {
     downloadContractPDF(
@@ -112,20 +142,17 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
           </p>
 
           <h2 className="font-bold mb-2">2. Obligaciones del freelancer</h2>
-          <ul className="mb-4 list-disc pl-6">
-            <li>
-              Diseñar y desarrollar una landing page responsiva según los
-              requerimientos previamente acordados.
-            </li>
-            <li>Entregar el trabajo dentro del plazo establecido.</li>
-            <li>
-              Realizar hasta dos rondas de ajustes menores sin costo adicional.
-            </li>
-            <li>
-              Mantener comunicación regular con la cliente sobre el avance del
-              proyecto.
-            </li>
-          </ul>
+          {loadingObligations ? (
+            <div className="mb-4 text-gray-500">Cargando obligaciones...</div>
+          ) : (
+            <ul className="mb-4 list-disc pl-6">
+              {obligations.map((obligation, index) => (
+                <li key={index} className="mb-2">
+                  {obligation}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2 className="font-bold mb-2">3. Obligaciones del cliente</h2>
           <ul className="mb-4 list-disc pl-6">
