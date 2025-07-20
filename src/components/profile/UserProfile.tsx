@@ -11,6 +11,7 @@ import { supabase } from "../../lib/supabase";
 import ConfirmModal from "../shared/ConfirmModal";
 import EstadoCombobox from "../ui/EstadoCombobox";
 import CiudadCombobox from "../ui/CiudadCombobox";
+import { User } from '@supabase/supabase-js';
 
 const UserProfileComponent: React.FC = () => {
   const { userProfile, refreshUserProfile } = useAuthContext();
@@ -55,56 +56,42 @@ const UserProfileComponent: React.FC = () => {
 
   const [initialFormData, setInitialFormData] = useState(formData);
   const [initialPhoto, setInitialPhoto] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (userProfile) {
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthUser(data.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (userProfile || authUser) {
+      const meta = authUser?.user_metadata || {};
       setFormData({
-        first_name: userProfile.first_name || "",
-        last_name: userProfile.last_name || "",
-        display_name: userProfile.display_name || "",
-        phone: userProfile.phone || "",
-        company: userProfile.company || "",
-        website: userProfile.website || "",
-        bio: userProfile.bio || "",
+        first_name: userProfile?.first_name || meta.given_name || meta.full_name?.split(' ')[0] || "",
+        last_name: userProfile?.last_name || meta.family_name || meta.full_name?.split(' ').slice(1).join(' ') || "",
+        display_name: userProfile?.display_name || meta.name || meta.full_name || "",
+        phone: userProfile?.phone || meta.phone || "",
+        company: userProfile?.company || meta.company || "",
+        website: userProfile?.website || "",
+        bio: userProfile?.bio || "",
         address: {
-          street: userProfile.address?.street || "",
-          city: userProfile.address?.city || "",
-          state: userProfile.address?.state || "",
-          zip_code: userProfile.address?.zip_code || "",
-          country: userProfile.address?.country || "",
+          street: userProfile?.address?.street ?? "",
+          city: userProfile?.address?.city ?? "",
+          state: userProfile?.address?.state ?? "",
+          zip_code: userProfile?.address?.zip_code ?? "",
+          country: userProfile?.address?.country ?? "",
         },
         business_info: {
-          business_name: userProfile.business_info?.business_name || "",
-          tax_id: userProfile.business_info?.tax_id || "",
-          business_type: userProfile.business_info?.business_type || "",
-          industry: userProfile.business_info?.industry || "",
+          business_name: userProfile?.business_info?.business_name ?? "",
+          tax_id: userProfile?.business_info?.tax_id ?? "",
+          business_type: userProfile?.business_info?.business_type ?? "",
+          industry: userProfile?.business_info?.industry ?? "",
         },
       });
-      setInitialFormData({
-        first_name: userProfile.first_name || "",
-        last_name: userProfile.last_name || "",
-        display_name: userProfile.display_name || "",
-        phone: userProfile.phone || "",
-        company: userProfile.company || "",
-        website: userProfile.website || "",
-        bio: userProfile.bio || "",
-        address: {
-          street: userProfile.address?.street || "",
-          city: userProfile.address?.city || "",
-          state: userProfile.address?.state || "",
-          zip_code: userProfile.address?.zip_code || "",
-          country: userProfile.address?.country || "",
-        },
-        business_info: {
-          business_name: userProfile.business_info?.business_name || "",
-          tax_id: userProfile.business_info?.tax_id || "",
-          business_type: userProfile.business_info?.business_type || "",
-          industry: userProfile.business_info?.industry || "",
-        },
-      });
-      setInitialPhoto(userProfile.photo_url || null);
+      setInitialPhoto(userProfile?.photo_url || meta.avatar_url || meta.picture || null);
     }
-  }, [userProfile]);
+  }, [userProfile, authUser]);
 
   useEffect(() => {
     if (userProfile && userProfile.photo_url) {
@@ -210,7 +197,7 @@ const UserProfileComponent: React.FC = () => {
             const sx = (img.width - minDim) / 2;
             const sy = (img.height - minDim) / 2;
             ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.98); // Usa 0.98 en vez de 0.92
             setProfileImage(dataUrl);
             localStorage.setItem("tempProfileImage", dataUrl);
             // Convertir el dataURL a File para subirlo
@@ -294,6 +281,12 @@ const UserProfileComponent: React.FC = () => {
     return formChanged || photoChanged;
   }
 
+  function getHighResGooglePhoto(url: string) {
+    if (!url) return url;
+    // Solo para URLs de Google
+    return url.replace(/s[0-9]+-c/, 's400-c');
+  }
+
   if (!userProfile) {
     return (
       <div className="p-4">
@@ -304,6 +297,10 @@ const UserProfileComponent: React.FC = () => {
       </div>
     );
   }
+
+  const highResPhoto = initialPhoto && initialPhoto.includes('googleusercontent')
+    ? getHighResGooglePhoto(initialPhoto)
+    : initialPhoto;
 
   return (
     <div className="p-4">
@@ -337,7 +334,7 @@ const UserProfileComponent: React.FC = () => {
                     src={
                       profileImage && profileImage.startsWith("data:")
                         ? profileImage
-                        : signedProfileImageUrl || "/images/Logo.svg"
+                        : signedProfileImageUrl || highResPhoto || "/images/Logo.svg"
                     }
                     alt="Foto de perfil"
                     className="w-80 h-80 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-[#9ae700] transition-transform duration-200 hover:scale-105"
