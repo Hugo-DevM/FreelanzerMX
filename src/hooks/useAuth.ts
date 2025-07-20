@@ -153,44 +153,47 @@ export const useAuth = () => {
           // Si el perfil existe, verificar si necesita actualización con datos de Google
           try {
             const existingProfile = await getUserProfile(session.user.id);
-            const googleData = extractGoogleData(session.user.user_metadata);
 
-            if (existingProfile) {
-              // Verificar si el perfil necesita actualización (campos vacíos o datos básicos)
+            // Verificar si el usuario se registró con Google
+            const isGoogleUser =
+              session.user.app_metadata?.provider === "google" ||
+              session.user.user_metadata?.provider === "google" ||
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.avatar_url;
+
+            if (existingProfile && isGoogleUser) {
+              const googleData = extractGoogleData(session.user.user_metadata);
+
+              // Solo actualizar si los campos están vacíos (no sobrescribir datos existentes)
               const needsUpdate =
                 !existingProfile.first_name ||
                 !existingProfile.last_name ||
                 !existingProfile.display_name ||
                 existingProfile.first_name === "EMPTY" ||
                 existingProfile.last_name === "EMPTY" ||
-                existingProfile.display_name === "EMPTY" ||
-                (googleData.first_name &&
-                  googleData.first_name !== existingProfile.first_name) ||
-                (googleData.last_name &&
-                  googleData.last_name !== existingProfile.last_name) ||
-                (googleData.display_name &&
-                  googleData.display_name !== existingProfile.display_name);
+                existingProfile.display_name === "EMPTY";
 
               if (needsUpdate) {
-                // Actualizar perfil existente con datos de Google
+                // Actualizar perfil existente con datos de Google SOLO si están vacíos
                 await updateUserProfile(session.user.id, {
                   display_name:
-                    googleData.display_name || existingProfile.display_name,
+                    existingProfile.display_name || googleData.display_name,
                   first_name:
-                    googleData.first_name || existingProfile.first_name,
-                  last_name: googleData.last_name || existingProfile.last_name,
+                    existingProfile.first_name || googleData.first_name,
+                  last_name: existingProfile.last_name || googleData.last_name,
                   phone: googleData.phone || existingProfile.phone || "",
                   company: googleData.company || existingProfile.company || "",
                   business_info: {
                     ...existingProfile.business_info,
                     business_name:
-                      googleData.business_name ||
                       existingProfile.business_info?.business_name ||
+                      googleData.business_name ||
                       "",
                   },
                 });
               }
             }
+            // Si no es usuario de Google, NO hacer nada - respetar los datos existentes
           } catch (error) {
             console.error(
               "Error updating existing profile with Google data:",

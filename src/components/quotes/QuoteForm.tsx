@@ -97,10 +97,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
       setFormData((prev) => ({
         ...prev,
         freelancerName: `${userProfile.first_name} ${userProfile.last_name}`,
-        city:
-          userProfile.address?.city ||
-          userProfile.address?.state ||
-          "Ciudad de México",
+        city: userProfile.address?.city || userProfile.address?.state || "",
       }));
     }
   }, [userProfile]);
