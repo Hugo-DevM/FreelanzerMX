@@ -116,7 +116,7 @@ export const createUserProfile = async (
     const { error } = await supabase.from("profiles").insert([userProfile]);
 
     if (error) throw error;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error creating user profile:", error);
     throw new Error(
@@ -169,7 +169,7 @@ export const updateUserProfile = async (
       .eq("id", id);
 
     if (error) throw error;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     throw new Error(
@@ -231,7 +231,7 @@ export const updateUserPreferences = async (
       .eq("id", id);
 
     if (error) throw error;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating user preferences:", error);
     throw new Error(
@@ -253,7 +253,7 @@ export const updateBusinessInfo = async (
       .eq("id", id);
 
     if (error) throw error;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating business info:", error);
     throw new Error(
@@ -269,7 +269,7 @@ export const checkDisplayNameExists = async (
 ): Promise<boolean> => {
   try {
     console.log("Checking display name:", displayName);
-    
+
     // Verificar en la tabla profiles con búsqueda exacta
     const { data, error } = await supabase
       .from("profiles")
@@ -296,12 +296,10 @@ export const checkDisplayNameExists = async (
   }
 };
 
-export const checkEmailExists = async (
-  email: string
-): Promise<boolean> => {
+export const checkEmailExists = async (email: string): Promise<boolean> => {
   try {
     console.log("Checking email:", email);
-    
+
     // Verificar en la tabla profiles
     const { data, error } = await supabase
       .from("profiles")
@@ -315,7 +313,7 @@ export const checkEmailExists = async (
         message: error.message,
         code: error.code,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
       });
       return false;
     }
@@ -327,19 +325,19 @@ export const checkEmailExists = async (
     }
 
     console.log("Email not found in profiles:", email);
-    
+
     // Debug: verificar si hay algún email en la tabla
     const { data: allEmails, error: debugError } = await supabase
       .from("profiles")
       .select("email")
       .limit(5);
-    
+
     if (debugError) {
       console.error("Debug error fetching emails:", debugError);
     } else {
       console.log("Sample emails in profiles table:", allEmails);
     }
-    
+
     return false;
   } catch (error) {
     console.error("Error checking email:", error);
@@ -351,7 +349,7 @@ export const checkEmailExists = async (
 export const debugProfilesTable = async () => {
   try {
     console.log("=== DEBUG: Checking profiles table ===");
-    
+
     // Verificar si podemos acceder a la tabla
     const { data, error } = await supabase
       .from("profiles")
@@ -365,19 +363,24 @@ export const debugProfilesTable = async () => {
         message: error.message,
         code: error.code,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
       });
       return;
     }
 
-
     if (data && data.length > 0) {
-      console.log("📧 Sample emails:", data.map(p => p.email));
-      console.log("👤 Sample display names:", data.map(p => p.display_name));
+      console.log(
+        "📧 Sample emails:",
+        data.map((p) => p.email)
+      );
+      console.log(
+        "👤 Sample display names:",
+        data.map((p) => p.display_name)
+      );
     } else {
       console.log("⚠️ No profiles found in database");
     }
-    
+
     console.log("=== END DEBUG ===");
   } catch (error) {
     console.error("❌ Error in debugProfilesTable:", error);
@@ -388,7 +391,7 @@ export const debugProfilesTable = async () => {
 export const debugEmailCheck = async (email: string) => {
   try {
     console.log(`=== DEBUG: Checking email "${email}" ===`);
-    
+
     // Verificar en profiles
     const { data, error } = await supabase
       .from("profiles")
@@ -406,7 +409,7 @@ export const debugEmailCheck = async (email: string) => {
     } else {
       console.log("❌ Email not found in profiles");
     }
-    
+
     console.log("=== END DEBUG ===");
   } catch (error) {
     console.error("❌ Error in debugEmailCheck:", error);
@@ -417,7 +420,7 @@ export const debugEmailCheck = async (email: string) => {
 export const debugAuthSystem = async () => {
   try {
     console.log("=== 🔍 COMPLETE AUTH SYSTEM DEBUG ===");
-    
+
     // 1. Verificar perfiles en profiles (esto sabemos que funciona)
     console.log("📋 Step 1: Checking profiles table...");
     const { data: profiles, error: profilesError } = await supabase
@@ -431,29 +434,35 @@ export const debugAuthSystem = async () => {
     } else {
       console.log("✅ Profiles in database:", profiles?.length || 0);
       if (profiles && profiles.length > 0) {
-        console.log("📧 Sample profile emails:", profiles.map(p => p.email));
+        console.log(
+          "📧 Sample profile emails:",
+          profiles.map((p) => p.email)
+        );
       } else {
         console.log("⚠️ No profiles found in database");
       }
     }
-    
+
     // 2. Verificar el usuario actual (si está autenticado)
     console.log("📋 Step 2: Checking current user...");
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (userError) {
       console.error("❌ Error getting current user:", userError);
     } else if (user) {
       console.log("✅ Current user:", user.email);
       console.log("🆔 Current user ID:", user.id);
-      
+
       // Verificar si el usuario actual tiene perfil
       const { data: currentProfile, error: profileError } = await supabase
         .from("profiles")
         .select("id, email, display_name")
         .eq("id", user.id)
         .maybeSingle();
-      
+
       if (profileError) {
         console.error("❌ Error checking current user profile:", profileError);
       } else if (currentProfile) {
@@ -464,12 +473,14 @@ export const debugAuthSystem = async () => {
     } else {
       console.log("⚠️ No user currently authenticated");
     }
-    
+
     console.log("=== 🎯 DIAGNOSIS SUMMARY ===");
-    
+
     if (profiles && profiles.length === 0) {
       console.log("🚨 PROBLEM IDENTIFIED: No profiles in database");
-      console.log("💡 SOLUTION: Need to create trigger or manually create profiles");
+      console.log(
+        "💡 SOLUTION: Need to create trigger or manually create profiles"
+      );
       console.log("📝 NEXT STEPS:");
       console.log("   1. Check if trigger exists in Supabase");
       console.log("   2. Create trigger if missing");
@@ -477,7 +488,7 @@ export const debugAuthSystem = async () => {
     } else if (profiles && profiles.length > 0) {
       console.log("✅ Profiles table has data - system should be working");
     }
-    
+
     console.log("=== END DEBUG ===");
   } catch (error) {
     console.error("❌ Error in debugAuthSystem:", error);
@@ -488,58 +499,62 @@ export const debugAuthSystem = async () => {
 export const createProfileForCurrentUser = async () => {
   try {
     console.log("=== 🔧 CREATING PROFILE FOR CURRENT USER ===");
-    
+
     // Obtener usuario actual
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (userError || !user) {
       console.error("❌ No user authenticated");
       return false;
     }
-    
+
     console.log("✅ Current user:", user.email);
-    
+
     // Verificar si ya tiene perfil
     const { data: existingProfile, error: checkError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
-    
+
     if (checkError) {
       console.error("❌ Error checking existing profile:", checkError);
       return false;
     }
-    
+
     if (existingProfile) {
       console.log("✅ User already has profile");
       return true;
     }
-    
+
     // Crear perfil manualmente
     const profileData = {
       id: user.id,
       email: user.email!,
-      display_name: user.user_metadata?.display_name || user.email!.split('@')[0],
-      first_name: user.user_metadata?.first_name || '',
-      last_name: user.user_metadata?.last_name || '',
+      display_name:
+        user.user_metadata?.display_name || user.email!.split("@")[0],
+      first_name: user.user_metadata?.first_name || "",
+      last_name: user.user_metadata?.last_name || "",
       phone: user.user_metadata?.phone || null,
       company: user.user_metadata?.company || null,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
-    
+
     console.log("📝 Creating profile with data:", profileData);
-    
+
     const { error: createError } = await supabase
       .from("profiles")
       .insert([profileData]);
-    
+
     if (createError) {
       console.error("❌ Error creating profile:", createError);
       return false;
     }
-    
+
     console.log("✅ Profile created successfully!");
     return true;
   } catch (error) {
@@ -610,7 +625,7 @@ export const deleteUserProfile = async (userId: string): Promise<void> => {
     }
 
     console.log("User deleted successfully");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error deleting user:", error);
     throw new Error(
@@ -620,55 +635,97 @@ export const deleteUserProfile = async (userId: string): Promise<void> => {
 };
 
 // Función para verificar si un usuario puede ser eliminado
-export const canDeleteUser = async (userId: string): Promise<{
+export const canDeleteUser = async (
+  userId: string
+): Promise<{
   canDelete: boolean;
   reason?: string;
   dependencies?: string[];
 }> => {
   try {
-    // Verificar si tiene proyectos
+    // Verificar si el usuario tiene proyectos
     const { data: projects } = await supabase
       .from("projects")
       .select("id")
       .eq("user_id", userId);
 
-    // Verificar si tiene cotizaciones
-    const { data: quotes } = await supabase
-      .from("quotes")
-      .select("id")
-      .eq("user_id", userId);
-
-    // Verificar si tiene contratos
+    // Verificar si el usuario tiene contratos
     const { data: contracts } = await supabase
       .from("contracts")
       .select("id")
       .eq("user_id", userId);
 
-    const dependencies = [];
+    // Verificar si el usuario tiene cotizaciones
+    const { data: quotes } = await supabase
+      .from("quotes")
+      .select("id")
+      .eq("user_id", userId);
+
+    const dependencies: string[] = [];
     if (projects && projects.length > 0) {
       dependencies.push(`${projects.length} proyecto(s)`);
-    }
-    if (quotes && quotes.length > 0) {
-      dependencies.push(`${quotes.length} cotización(es)`);
     }
     if (contracts && contracts.length > 0) {
       dependencies.push(`${contracts.length} contrato(s)`);
     }
+    if (quotes && quotes.length > 0) {
+      dependencies.push(`${quotes.length} cotización(es)`);
+    }
 
     const canDelete = dependencies.length === 0;
+    const reason = canDelete
+      ? undefined
+      : `El usuario tiene ${dependencies.join(", ")} asociados`;
 
     return {
       canDelete,
-      reason: canDelete 
-        ? undefined 
-        : `El usuario tiene ${dependencies.join(", ")} asociados`,
-      dependencies
+      reason,
+      dependencies,
     };
   } catch (error) {
-    console.error("Error checking user dependencies:", error);
+    console.error("Error checking if user can be deleted:", error);
     return {
       canDelete: false,
-      reason: "Error al verificar dependencias del usuario"
+      reason: "Error al verificar dependencias del usuario",
     };
+  }
+};
+
+// Función para verificar si un usuario puede crear proyectos
+export const canCreateProject = async (userId: string): Promise<boolean> => {
+  try {
+    const plan = await getUserPlan(userId);
+    const limit = getProjectLimit(plan);
+
+    // Obtener el número actual de proyectos del usuario
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error fetching user projects:", error);
+      return false;
+    }
+
+    const currentProjectCount = projects?.length || 0;
+    return currentProjectCount < limit;
+  } catch (error) {
+    console.error("Error checking if user can create project:", error);
+    return false;
+  }
+};
+
+// Función para obtener el límite de proyectos según el plan
+export const getProjectLimit = (plan: "free" | "pro" | "team"): number => {
+  switch (plan) {
+    case "free":
+      return 2;
+    case "pro":
+      return 10;
+    case "team":
+      return 50;
+    default:
+      return 2;
   }
 };
