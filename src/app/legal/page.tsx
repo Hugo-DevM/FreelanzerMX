@@ -10,7 +10,7 @@ export default function LegalPage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#F4F5F7] to-white">
       {/* Header */}
       <header className="fixed top-0 left-0 w-full z-30 bg-white/80 backdrop-blur border-b border-[#E5E7EB]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-20 px-4 sm:px-8">
           <div className="flex items-center gap-3">
             <Logo width={40} height={40} />
             <span className="text-xl font-bold text-[#1A1A1A] tracking-tight">
@@ -25,29 +25,37 @@ export default function LegalPage() {
               Inicio
             </button>
             <button
-              onClick={() => router.push("/")}
+              onClick={() =>
+                document
+                  .getElementById("features")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
               className="hover:text-[#9ae600] transition"
             >
               Funciones
             </button>
             <button
-              onClick={() => router.push("/")}
+              onClick={() =>
+                document
+                  .getElementById("pricing")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
               className="hover:text-[#9ae600] transition"
             >
               Precios
             </button>
             <button
-              onClick={() => router.push("/")}
+              onClick={() =>
+                document
+                  .getElementById("contact")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
               className="hover:text-[#9ae600] transition"
             >
               Contacto
             </button>
           </nav>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/login")}
-            className="ml-4"
-          >
+          <Button variant="outline" onClick={() => router.push("/login")}>
             Iniciar sesión
           </Button>
         </div>
@@ -143,57 +151,44 @@ export default function LegalPage() {
                 </p>
               </section>
             </div>
-
-            <div className="mt-12 pt-8 border-t border-[#E5E7EB]">
-              <Button
-                variant="outline"
-                onClick={() => router.push("/")}
-                className="flex items-center gap-2"
-              >
-                ← Volver al inicio
-              </Button>
-            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-[#E5E7EB] py-8 px-4 mt-auto">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer
+        id="contact"
+        className="bg-white border-t border-[#E5E7EB] py-8 px-4 sm:px-8 mt-auto"
+      >
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          {/* Logo - pegado al borde izquierdo */}
           <div className="flex items-center gap-2">
             <Logo width={32} height={32} />
             <span className="font-bold text-[#1A1A1A]">Freelanzer</span>
           </div>
-          <div className="flex gap-6 text-[#6B7280] text-sm">
-            <button
-              onClick={() => router.push("/legal")}
-              className="hover:text-[#9ae600]"
-            >
-              Aviso legal
-            </button>
-            <button
-              onClick={() => router.push("/privacy")}
-              className="hover:text-[#9ae600]"
-            >
-              Privacidad
-            </button>
-            <a
-              href="https://instagram.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#9ae600]"
-            >
-              Instagram
-            </a>
-            <a
-              href="https://www.linkedin.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#9ae600]"
-            >
-              LinkedIn
-            </a>
+
+          {/* Enlaces centrados */}
+          <div className="flex-1 flex justify-center">
+            <div className="flex gap-6 text-[#6B7280] text-sm">
+              <button
+                onClick={() => router.push("/privacy")}
+                className="hover:text-[#9ae600]"
+              >
+                Privacidad
+              </button>
+              <a
+                href="https://www.instagram.com/freelanzermx?igsh=djR6aWVyaWxiN3Rl&utm_source=qr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#9ae600]"
+              >
+                Instagram
+              </a>
+            </div>
           </div>
+
+          {/* Espacio vacío para mantener el balance */}
+          <div className="hidden md:block w-[120px]"></div>
         </div>
       </footer>
     </div>
