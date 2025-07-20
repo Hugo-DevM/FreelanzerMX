@@ -137,6 +137,7 @@ export const updateProject = async (
       supabaseUpdates.due_date = updates.dueDate;
     if (updates.deliverables !== undefined)
       supabaseUpdates.deliverables = updates.deliverables;
+    // Nota: progress se calcula dinámicamente, no se almacena en la base de datos
 
     const { error } = await supabase
       .from("projects")
@@ -214,7 +215,7 @@ export const updateTask = async (
   try {
     const { data: project } = await supabase
       .from("projects")
-      .select("tasks")
+      .select("tasks, status")
       .eq("id", projectId)
       .single();
 
@@ -225,18 +226,50 @@ export const updateTask = async (
       throw new Error("Tarea no encontrada");
     }
 
+    // Actualizar la tarea
     tasks[taskIndex] = {
       ...tasks[taskIndex],
       ...updates,
       updatedAt: new Date(),
     };
 
+    // Calcular nuevo progreso
+    const doneCount = tasks.filter(
+      (task: Task) => task.status === "done"
+    ).length;
+    const progress = Math.round((doneCount / tasks.length) * 100);
+
+    // Determinar nuevo estado del proyecto
+    let newStatus = project?.status || "pending";
+    if (tasks.length > 0 && doneCount === tasks.length) {
+      newStatus = "completed";
+    } else if (tasks.length > 0) {
+      newStatus = "in-progress";
+    } else {
+      newStatus = "pending";
+    }
+
+    // Actualizar proyecto con tareas y estado (el progreso se calcula dinámicamente)
     const { error } = await supabase
       .from("projects")
-      .update({ tasks })
+      .update({
+        tasks,
+        status: newStatus,
+      })
       .eq("id", projectId);
 
     if (error) throw error;
+
+    console.log(
+      "✅ Tarea actualizada - Progreso calculado:",
+      progress,
+      "%, Estado:",
+      newStatus,
+      "Tareas completadas:",
+      doneCount,
+      "de",
+      tasks.length
+    );
   } catch (error: any) {
     console.error("Error updating task:", error);
     throw new Error(

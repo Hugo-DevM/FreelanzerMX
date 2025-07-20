@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ProfileProvider } from "./ProfileContext";
 import { DashboardProvider } from "./DashboardContext";
 import { FinanceProvider } from "./FinanceContext";
@@ -27,10 +27,14 @@ const CacheCleaner: React.FC<{ children: React.ReactNode }> = ({
     await signOut();
   }, [user, signOut]);
 
+  // Memoizar el valor del contexto para evitar re-renders innecesarios
+  const contextValue = useMemo(
+    () => ({ ...rest, user, signOut: customSignOut }),
+    [...Object.values(rest), user, customSignOut]
+  );
+
   return (
-    <AuthContext.Provider value={{ ...rest, user, signOut: customSignOut }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };
 

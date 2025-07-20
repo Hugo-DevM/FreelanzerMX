@@ -66,6 +66,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         return `${year}-${month}-${day}`;
       })(),
     city: initialData?.city || "",
+    quoteId: initialData?.quoteId || "",
   });
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -89,10 +90,21 @@ const ContractForm: React.FC<ContractFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setFormData({
-      ...formData,
-      [name]: name === "amount" ? (value === "" ? "" : Number(value)) : value,
-    });
+
+    if (name === "amount") {
+      // Manejar específicamente el campo de monto
+      const numericValue = value.replace(/[^0-9]/g, ""); // Solo permitir números
+      const parsedValue = numericValue === "" ? 0 : parseInt(numericValue, 10);
+      setFormData({
+        ...formData,
+        [name]: parsedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -205,6 +217,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
               onChange={handleChange}
               required
               className="w-40"
+              min="0"
+              step="1"
             />
             <div className="flex flex-col w-full">
               <label className="mb-1 font-medium text-sm text-[#1A1A1A]">
@@ -313,7 +327,7 @@ export const ContractFromQuoteForm: React.FC<{
           clientName: quote.client_name,
           service: quote.services.map((s) => s.description).join(", "),
           amount: quote.total,
-          currency: quote.currency,
+          currency: quote.currency || "MXN",
           paymentMethod: quote.payment_terms || "",
           startDate:
             quote.delivery_date || new Date().toISOString().split("T")[0],
@@ -328,7 +342,22 @@ export const ContractFromQuoteForm: React.FC<{
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === "amount") {
+      // Manejar específicamente el campo de monto
+      const numericValue = value.replace(/[^0-9]/g, ""); // Solo permitir números
+      const parsedValue = numericValue === "" ? 0 : parseInt(numericValue, 10);
+      setFormData({
+        ...formData,
+        [name]: parsedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -412,7 +441,7 @@ export const ContractFromQuoteForm: React.FC<{
               {q.services.map((s) => s.description).join(", ")} -{" "}
               {q.total.toLocaleString("es-MX", {
                 style: "currency",
-                currency: q.currency,
+                currency: q.currency || "MXN",
               })}
             </option>
           ))}
@@ -448,6 +477,8 @@ export const ContractFromQuoteForm: React.FC<{
           onChange={handleChange}
           required
           className="w-40"
+          min="0"
+          step="1"
         />
         <div className="flex flex-col w-full">
           <label className="mb-1 font-medium text-sm text-[#1A1A1A]">

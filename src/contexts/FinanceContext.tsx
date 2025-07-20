@@ -63,6 +63,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!loadedFromCache && !loading) {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchData = useCallback(async () => {

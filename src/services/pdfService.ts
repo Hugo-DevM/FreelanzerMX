@@ -329,7 +329,9 @@ export const generateContractPDF = async (
   lines = pdf.splitTextToSize(
     `El monto acordado por los servicios es de $${amount.toLocaleString(
       "es-MX"
-    )} ${currency}, pagaderos de la siguiente manera: ${paymentMethod}`,
+    )} ${
+      currency || "MXN"
+    }, pagaderos de la siguiente manera: ${paymentMethod}`,
     170
   );
   y = ensureSpace(pdf, y, lines.length * 7 + 4);

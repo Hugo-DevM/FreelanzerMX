@@ -72,6 +72,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!loadedFromCache && !loading) {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, fetchData]);
 
   const refreshData = useCallback(async () => {
