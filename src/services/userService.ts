@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 
 // Función auxiliar para limpiar valores undefined
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cleanUndefinedValues = (obj: any): any => {
   if (obj === null || obj === undefined) {
     return null;
@@ -11,6 +12,7 @@ const cleanUndefinedValues = (obj: any): any => {
   if (Array.isArray(obj)) {
     return obj.map(cleanUndefinedValues);
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cleaned: any = {};
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined) {
@@ -114,6 +116,7 @@ export const createUserProfile = async (
     const { error } = await supabase.from("profiles").insert([userProfile]);
 
     if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error creating user profile:", error);
     throw new Error(
@@ -166,6 +169,7 @@ export const updateUserProfile = async (
       .eq("id", id);
 
     if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     throw new Error(
@@ -227,6 +231,7 @@ export const updateUserPreferences = async (
       .eq("id", id);
 
     if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating user preferences:", error);
     throw new Error(
@@ -248,6 +253,7 @@ export const updateBusinessInfo = async (
       .eq("id", id);
 
     if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error updating business info:", error);
     throw new Error(
@@ -364,9 +370,7 @@ export const debugProfilesTable = async () => {
       return;
     }
 
-    console.log("✅ Recent profiles in database:", data);
-    console.log("📊 Total profiles found:", data?.length || 0);
-    
+
     if (data && data.length > 0) {
       console.log("📧 Sample emails:", data.map(p => p.email));
       console.log("👤 Sample display names:", data.map(p => p.display_name));
@@ -541,5 +545,130 @@ export const createProfileForCurrentUser = async () => {
   } catch (error) {
     console.error("❌ Error in createProfileForCurrentUser:", error);
     return false;
+  }
+};
+
+// Función para obtener el plan del usuario
+export const getUserPlan = async (
+  userId: string
+): Promise<"free" | "pro" | "team"> => {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") return "free"; // Plan por defecto si no existe perfil
+      throw error;
+    }
+
+    return data?.plan || "free";
+  } catch (error) {
+    console.error("Error getting user plan:", error);
+    return "free"; // Plan por defecto en caso de error
+  }
+};
+
+// Función para actualizar el plan del usuario
+export const updateUserPlan = async (
+  userId: string,
+  plan: "free" | "pro" | "team"
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ plan, updated_at: new Date() })
+      .eq("id", userId);
+
+    if (error) throw error;
+  } catch (error: any) {
+    console.error("Error updating user plan:", error);
+    throw new Error(
+      `Error al actualizar el plan del usuario: ${
+        error.message || "Error desconocido"
+      }`
+    );
+  }
+};
+
+export const deleteUserProfile = async (userId: string): Promise<void> => {
+  try {
+    // Usar el endpoint de API que maneja la eliminación completa
+    const response = await fetch("/api/delete-user", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Error al eliminar usuario");
+    }
+
+    console.log("User deleted successfully");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error deleting user:", error);
+    throw new Error(
+      `Error al eliminar usuario: ${error.message || "Error desconocido"}`
+    );
+  }
+};
+
+// Función para verificar si un usuario puede ser eliminado
+export const canDeleteUser = async (userId: string): Promise<{
+  canDelete: boolean;
+  reason?: string;
+  dependencies?: string[];
+}> => {
+  try {
+    // Verificar si tiene proyectos
+    const { data: projects } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", userId);
+
+    // Verificar si tiene cotizaciones
+    const { data: quotes } = await supabase
+      .from("quotes")
+      .select("id")
+      .eq("user_id", userId);
+
+    // Verificar si tiene contratos
+    const { data: contracts } = await supabase
+      .from("contracts")
+      .select("id")
+      .eq("user_id", userId);
+
+    const dependencies = [];
+    if (projects && projects.length > 0) {
+      dependencies.push(`${projects.length} proyecto(s)`);
+    }
+    if (quotes && quotes.length > 0) {
+      dependencies.push(`${quotes.length} cotización(es)`);
+    }
+    if (contracts && contracts.length > 0) {
+      dependencies.push(`${contracts.length} contrato(s)`);
+    }
+
+    const canDelete = dependencies.length === 0;
+
+    return {
+      canDelete,
+      reason: canDelete 
+        ? undefined 
+        : `El usuario tiene ${dependencies.join(", ")} asociados`,
+      dependencies
+    };
+  } catch (error) {
+    console.error("Error checking user dependencies:", error);
+    return {
+      canDelete: false,
+      reason: "Error al verificar dependencias del usuario"
+    };
   }
 };
