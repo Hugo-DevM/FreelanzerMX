@@ -697,19 +697,18 @@ export const canCreateProject = async (userId: string): Promise<boolean> => {
     const plan = await getUserPlan(userId);
     const limit = getProjectLimit(plan);
 
-    // Obtener el número actual de proyectos del usuario
-    const { data: projects, error } = await supabase
+    const { count, error } = await supabase
       .from("projects")
-      .select("id", { count: "exact", head: true })
+      .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
     if (error) {
-      console.error("Error fetching user projects:", error);
+      console.error("Error fetching project count:", error);
       return false;
     }
 
-    const currentProjectCount = projects?.length || 0;
-    return currentProjectCount < limit;
+    console.log("Plan:", plan, "Límite:", limit, "Proyectos actuales:", count);
+    return (count || 0) < limit;
   } catch (error) {
     console.error("Error checking if user can create project:", error);
     return false;

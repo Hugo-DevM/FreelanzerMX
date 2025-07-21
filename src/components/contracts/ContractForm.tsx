@@ -72,15 +72,37 @@ const ContractForm: React.FC<ContractFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasInitialized = React.useRef(false);
 
+  // Solo inicializar una vez cuando hay initialData
   useEffect(() => {
-    if (initialData) {
+    if (initialData && !hasInitialized.current) {
       setFormData((prev) => ({
         ...prev,
         ...initialData,
       }));
+      hasInitialized.current = true;
     }
-  }, [JSON.stringify(initialData)]);
+  }, [initialData]);
+
+  // Solo llenar ciudad si no se ha inicializado y no hay initialData
+  useEffect(() => {
+    if (
+      userProfile &&
+      !initialData &&
+      !formData.city &&
+      !hasInitialized.current
+    ) {
+      const userCity =
+        userProfile.address?.city || userProfile.address?.state || "";
+      if (userCity) {
+        setFormData((prev) => ({
+          ...prev,
+          city: userCity,
+        }));
+      }
+    }
+  }, [userProfile, initialData, hasInitialized]);
 
   useEffect(() => {
     if (onShowPreviewChange && showPreview) {
@@ -154,6 +176,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
         <ContractPreview
           contractData={formData}
           onBack={() => setShowPreview(false)}
+          onEdit={(data) => {
+            setFormData(data); // Actualizar el formulario con los datos actuales
+            setShowPreview(false); // Regresar al formulario
+          }}
         />
         <div className="flex justify-end gap-4 mt-6">
           <Button onClick={handleSave} disabled={saving}>
@@ -308,18 +334,16 @@ export const ContractFromQuoteForm: React.FC<{
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = React.useState(false); // Agregar estado para controlar inicialización
+
   React.useEffect(() => {
-    if (acceptedQuotes.length > 0) {
+    if (acceptedQuotes !== undefined) {
       setQuotes(acceptedQuotes);
-    } else if (user) {
-      // Fallback: cargar todas las cotizaciones aprobadas si no se pasan las filtradas
-      getUserQuotes(user.uid).then((all) => {
-        setQuotes(all.filter((q) => q.status === "approved"));
-      });
     }
-  }, [user, acceptedQuotes]);
+  }, [acceptedQuotes]);
+
   React.useEffect(() => {
-    if (selectedQuoteId) {
+    if (selectedQuoteId && !hasInitialized) {
       const quote = quotes.find((q) => q.id === selectedQuoteId);
       if (quote) {
         setFormData({
@@ -336,9 +360,10 @@ export const ContractFromQuoteForm: React.FC<{
           city: quote.city,
           quoteId: quote.id,
         });
+        setHasInitialized(true);
       }
     }
-  }, [selectedQuoteId, quotes]);
+  }, [selectedQuoteId, quotes, hasInitialized]);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -402,6 +427,10 @@ export const ContractFromQuoteForm: React.FC<{
         <ContractPreview
           contractData={formData}
           onBack={() => setShowPreview(false)}
+          onEdit={(data) => {
+            setFormData(data); // Actualizar el formulario con los datos actuales
+            setShowPreview(false); // Regresar al formulario
+          }}
         />
         <div className="flex justify-end gap-4 mt-6">
           <Button onClick={() => setShowPreview(false)} variant="outline">
@@ -431,7 +460,10 @@ export const ContractFromQuoteForm: React.FC<{
         <select
           className="w-full h-[48px] px-4 border border-[#E5E7EB] rounded-lg bg-white text-[#0E0E2C] focus:outline-none focus:ring-2 focus:ring-[#9ae600]"
           value={selectedQuoteId}
-          onChange={(e) => setSelectedQuoteId(e.target.value)}
+          onChange={(e) => {
+            setSelectedQuoteId(e.target.value);
+            setHasInitialized(false); // Resetear cuando se selecciona una nueva cotización
+          }}
           required
         >
           <option value="">Selecciona una cotización</option>

@@ -8,6 +8,7 @@ import { getFreelancerObligations } from "../../services/obligationsService";
 interface ContractPreviewProps {
   contractData: ContractFormData;
   onBack: () => void;
+  onEdit?: (data: ContractFormData) => void; // Agregar prop para editar
   onSave?: () => void;
   saving?: boolean;
 }
@@ -15,6 +16,7 @@ interface ContractPreviewProps {
 const ContractPreview: React.FC<ContractPreviewProps> = ({
   contractData,
   onBack,
+  onEdit, // Agregar prop
   onSave,
   saving,
 }) => {
@@ -91,7 +93,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
             Descargar PDF
           </Button>
           <Button
-            onClick={onBack}
+            onClick={() => (onEdit ? onEdit(contractData) : onBack())} // Usar onEdit si está disponible
             size="sm"
             className="bg-blue-600 text-white hover:bg-blue-700"
           >
