@@ -24,7 +24,7 @@ export interface Project {
   deliverables?: string[];
   notes?: string;
   attachments?: string[];
-  tasks: Task[];
+  tasks?: Task[]; // Ahora opcional, puede venir de la tabla relacional
   amount?: number;
   createdAt: Date;
   updatedAt: Date;

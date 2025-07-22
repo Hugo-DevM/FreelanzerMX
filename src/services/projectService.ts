@@ -48,32 +48,35 @@ export const getUserProjects = async (userId: string): Promise<Project[]> => {
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, name, description, client, status, priority, due_date, deliverables, amount, created_at, tasks"
+        "id, name, description, client, status, priority, due_date, deliverables, amount, created_at, contract_id"
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return data.map((project) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      client: project.client,
-      status: project.status,
-      priority: project.priority,
-      dueDate: project.due_date,
-      deliverables: project.deliverables,
-      amount: project.amount,
-      tasks: (project.tasks || []).map((task: any) => ({
-        ...task,
-        createdAt: task.createdAt ? new Date(task.createdAt) : undefined,
-        updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
-      })),
-      progress: calculateProgress(project.tasks || []),
-      createdAt: new Date(project.created_at),
-      // updatedAt no se trae aquí
-    })) as Project[];
+    // Obtener tareas para cada proyecto
+    const projects = await Promise.all(
+      (data || []).map(async (project: any) => {
+        const tasks = await getProjectTasks(project.id);
+        return {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          client: project.client,
+          status: project.status,
+          priority: project.priority,
+          dueDate: project.due_date,
+          deliverables: project.deliverables,
+          amount: project.amount,
+          contractId: project.contract_id,
+          tasks,
+          progress: calculateProgress(tasks),
+          createdAt: new Date(project.created_at),
+        };
+      })
+    );
+    return projects as Project[];
   } catch (error: any) {
     console.error("Error getting user projects:", error);
     throw new Error("Error al obtener los proyectos");
@@ -95,6 +98,8 @@ export const getProject = async (
       throw error;
     }
 
+    // Obtener tareas desde la tabla relacional
+    const tasks = await getProjectTasks(projectId);
     return {
       id: data.id,
       name: data.name,
@@ -104,13 +109,8 @@ export const getProject = async (
       priority: data.priority,
       dueDate: data.due_date,
       deliverables: data.deliverables,
-      tasks: (data.tasks || []).map((task: any) => ({
-        ...task,
-        // dueDate ya es string, no convertir
-        createdAt: task.createdAt ? new Date(task.createdAt) : undefined,
-        updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
-      })),
-      progress: calculateProgress(data.tasks || []),
+      tasks,
+      progress: calculateProgress(tasks),
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     } as Project;
@@ -170,141 +170,61 @@ export const deleteProject = async (projectId: string): Promise<void> => {
   }
 };
 
+// NUEVO: Servicio para obtener tareas de un proyecto
+export const getProjectTasks = async (projectId: string): Promise<Task[]> => {
+  const { data, error } = await supabase
+    .from("project_tasks")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((task: any) => ({
+    ...task,
+    createdAt: new Date(task.created_at),
+    updatedAt: new Date(task.updated_at),
+  }));
+};
+
+// NUEVO: Agregar tarea a la tabla relacional
 export const addTaskToProject = async (
   projectId: string,
   taskData: CreateTaskData
 ): Promise<void> => {
-  try {
-    const newTask: Task = {
-      id: taskData.id || crypto.randomUUID(),
+  const { error } = await supabase.from("project_tasks").insert([
+    {
+      project_id: projectId,
       title: taskData.title,
       description: taskData.description,
       status: "todo",
-      dueDate: taskData.dueDate,
-      estimatedHours: taskData.estimatedHours,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks")
-      .eq("id", projectId)
-      .single();
-
-    const updatedTasks = [...(project?.tasks || []), newTask];
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ tasks: updatedTasks })
-      .eq("id", projectId);
-
-    if (error) throw error;
-  } catch (error: any) {
-    console.error("Error adding task to project:", error);
-    throw new Error(
-      `Error al agregar la tarea: ${error.message || "Error desconocido"}`
-    );
-  }
+      due_date: taskData.dueDate,
+      estimated_hours: taskData.estimatedHours,
+    },
+  ]);
+  if (error) throw error;
 };
 
+// NUEVO: Actualizar tarea
 export const updateTask = async (
-  projectId: string,
   taskId: string,
   updates: UpdateTaskData
 ): Promise<void> => {
-  try {
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks, status")
-      .eq("id", projectId)
-      .single();
-
-    const tasks = project?.tasks || [];
-    const taskIndex = tasks.findIndex((task: Task) => task.id === taskId);
-
-    if (taskIndex === -1) {
-      throw new Error("Tarea no encontrada");
-    }
-
-    // Actualizar la tarea
-    tasks[taskIndex] = {
-      ...tasks[taskIndex],
+  const { error } = await supabase
+    .from("project_tasks")
+    .update({
       ...updates,
-      updatedAt: new Date(),
-    };
-
-    // Calcular nuevo progreso
-    const doneCount = tasks.filter(
-      (task: Task) => task.status === "done"
-    ).length;
-    const progress = Math.round((doneCount / tasks.length) * 100);
-
-    // Determinar nuevo estado del proyecto
-    let newStatus = project?.status || "pending";
-    if (tasks.length > 0 && doneCount === tasks.length) {
-      newStatus = "completed";
-    } else if (tasks.length > 0) {
-      newStatus = "in-progress";
-    } else {
-      newStatus = "pending";
-    }
-
-    // Actualizar proyecto con tareas y estado (el progreso se calcula dinámicamente)
-    const { error } = await supabase
-      .from("projects")
-      .update({
-        tasks,
-        status: newStatus,
-      })
-      .eq("id", projectId);
-
-    if (error) throw error;
-
-    console.log(
-      "✅ Tarea actualizada - Progreso calculado:",
-      progress,
-      "%, Estado:",
-      newStatus,
-      "Tareas completadas:",
-      doneCount,
-      "de",
-      tasks.length
-    );
-  } catch (error: any) {
-    console.error("Error updating task:", error);
-    throw new Error(
-      `Error al actualizar la tarea: ${error.message || "Error desconocido"}`
-    );
-  }
+      updated_at: new Date(),
+    })
+    .eq("id", taskId);
+  if (error) throw error;
 };
 
-export const deleteTask = async (
-  projectId: string,
-  taskId: string
-): Promise<void> => {
-  try {
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks")
-      .eq("id", projectId)
-      .single();
-
-    const tasks = project?.tasks || [];
-    const filteredTasks = tasks.filter((task: Task) => task.id !== taskId);
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ tasks: filteredTasks })
-      .eq("id", projectId);
-
-    if (error) throw error;
-  } catch (error: any) {
-    console.error("Error deleting task:", error);
-    throw new Error(
-      `Error al eliminar la tarea: ${error.message || "Error desconocido"}`
-    );
-  }
+// NUEVO: Eliminar tarea
+export const deleteTask = async (taskId: string): Promise<void> => {
+  const { error } = await supabase
+    .from("project_tasks")
+    .delete()
+    .eq("id", taskId);
+  if (error) throw error;
 };
 
 export const getContracts = async (): Promise<Contract[]> => {
@@ -332,7 +252,7 @@ export const getContracts = async (): Promise<Contract[]> => {
   }
 };
 
-const calculateProgress = (tasks: Task[]): number => {
+export const calculateProgress = (tasks: Task[]): number => {
   if (tasks.length === 0) return 0;
   const completedTasks = tasks.filter((task) => task.status === "done");
   return Math.round((completedTasks.length / tasks.length) * 100);

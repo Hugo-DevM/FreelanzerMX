@@ -8,6 +8,7 @@ import {
   getProjectLimit,
   getUserPlan,
 } from "../../services/userService";
+import { usePathname } from "next/navigation";
 import Button from "../ui/Button";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
@@ -26,6 +27,8 @@ const ProjectsComponent: React.FC = () => {
   const [canCreate, setCanCreate] = useState(true);
   const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
   const [projectLimit, setProjectLimit] = useState(2);
+
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -81,6 +84,14 @@ const ProjectsComponent: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [user?.uid, refreshData]);
+
+  useEffect(() => {
+    if (pathname === "/projects") {
+      startTransition(() => {
+        refreshData();
+      });
+    }
+  }, [pathname, startTransition]);
 
   const loadUserPlanInfo = async () => {
     if (!user?.uid) return;
