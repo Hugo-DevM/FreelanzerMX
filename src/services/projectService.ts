@@ -24,6 +24,7 @@ export const createProject = async (
       deliverables: projectData.deliverables,
       amount: projectData.amount,
       tasks: [],
+      contract_id: projectData.contractId,
     };
 
     const { data, error } = await supabase
@@ -179,7 +180,7 @@ export const addTaskToProject = async (
       title: taskData.title,
       description: taskData.description,
       status: "todo",
-      dueDate: taskData.dueDate, // Guardar como string
+      dueDate: taskData.dueDate,
       estimatedHours: taskData.estimatedHours,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -335,4 +336,22 @@ const calculateProgress = (tasks: Task[]): number => {
   if (tasks.length === 0) return 0;
   const completedTasks = tasks.filter((task) => task.status === "done");
   return Math.round((completedTasks.length / tasks.length) * 100);
+};
+
+export const getUsedContractIds = async (userId: string): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("contract_id")
+      .eq("user_id", userId)
+      .not("contract_id", "is", null);
+
+    if (error) throw error;
+
+    const usedIds = data.map((p) => p.contract_id).filter(Boolean);
+    return usedIds;
+  } catch (error: any) {
+    console.error("Error al obtener contratos ya usados:", error);
+    return [];
+  }
 };

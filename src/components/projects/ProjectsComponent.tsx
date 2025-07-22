@@ -15,6 +15,7 @@ import ErrorModal from "../shared/ErrorModal";
 import { PlusIcon } from "../ui/icons";
 import { Card } from "../ui";
 import { ProjectListSkeleton } from "../ui/SkeletonLoader";
+import { supabase } from "../../lib/supabase";
 
 const ProjectsComponent: React.FC = () => {
   const { projects, loading, error, fetched, fetchData, refreshData } =
@@ -26,6 +27,18 @@ const ProjectsComponent: React.FC = () => {
   const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
   const [projectLimit, setProjectLimit] = useState(2);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshData(); // 🔁 Fuerza la recarga desde Supabase
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshData]);
   // useEffect con useTransition para evitar bloqueos en el render
   useEffect(() => {
     if (!loading && !fetched) {
@@ -42,6 +55,32 @@ const ProjectsComponent: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]);
+
+  // useEffect para escuchar cambios en tiempo real en los proyectos del usuario
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const channel = supabase
+      .channel("realtime-projects")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // puede ser "INSERT", "UPDATE", "DELETE"
+          schema: "public",
+          table: "projects",
+          filter: `user_id=eq.${user.uid}`,
+        },
+        (payload) => {
+          console.log("🔁 Cambio detectado en projects:", payload);
+          refreshData(); // Vuelve a cargar los proyectos en tiempo real
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.uid, refreshData]);
 
   const loadUserPlanInfo = async () => {
     if (!user?.uid) return;

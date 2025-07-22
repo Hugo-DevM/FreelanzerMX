@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { Contract, CreateProjectData } from "../../types/project";
-import { createProject, getContracts } from "../../services/projectService";
+import {
+  createProject,
+  getContracts,
+  getUsedContractIds,
+} from "../../services/projectService";
 import {
   canCreateProject,
   getProjectLimit,
@@ -59,15 +63,16 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       const canCreateProjects = await canCreateProject(userId);
 
       // Obtener el número actual de proyectos
-      const { data: projects } = await supabase
+      const { count, error } = await supabase
         .from("projects")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("user_id", userId);
 
-      const currentProjectCount = projects?.length || 0;
+      if (error) throw error;
+
+      setProjectCount(count || 0);
 
       setUserPlan(plan);
-      setProjectCount(currentProjectCount);
       setCanCreate(canCreateProjects);
     } catch (error) {
       console.error("Error loading user plan info:", error);
@@ -76,8 +81,14 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   const loadContracts = async () => {
     try {
-      const userContracts = await getContracts();
-      setContracts(userContracts);
+      const allContracts = await getContracts();
+      const usedIds = await getUsedContractIds(userId);
+
+      const availableContracts = allContracts.filter(
+        (contract) => !usedIds.includes(contract.id)
+      );
+
+      setContracts(availableContracts);
     } catch (err: any) {
       console.error("Error loading contracts:", err);
       setError("Error al cargar los contratos");
@@ -106,8 +117,8 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         }
       }
       setFormData({
-        name: contract.service,
-        description: `Proyecto basado en contrato con ${contract.clientName}`,
+        name: "",
+        description: contract.service,
         client: contract.clientName,
         priority: "medium",
         dueDate: dueDate,
@@ -348,16 +359,6 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                           <strong>Fecha fin:</strong>{" "}
                           {formatDate(contract.endDate)}
                         </p>
-                        <div>
-                          <strong>Entregables:</strong>
-                          <ul className="list-disc list-inside mt-1 ml-2">
-                            {(contract.deliverables || []).map(
-                              (deliverable, index) => (
-                                <li key={index}>{deliverable}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
                       </div>
                     );
                   })()}

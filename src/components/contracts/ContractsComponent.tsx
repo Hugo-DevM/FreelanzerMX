@@ -132,7 +132,7 @@ const ContractsComponent: React.FC = () => {
       }
 
       console.log("Iniciando guardado de contrato...");
-      console.log("Datos a guardar:", previewData);
+      console.log("Datos a guardar:", previewData.quoteId);
 
       setSaving(true);
       setSaveError(null);
@@ -162,7 +162,6 @@ const ContractsComponent: React.FC = () => {
           setSaveSuccess(false);
           setShowPreview(false);
           setShowForm(false);
-          setShowFromQuote(false);
           setShowCreationModal(false);
           setSelectedQuote(null);
           setPreviewData(null);
@@ -182,6 +181,10 @@ const ContractsComponent: React.FC = () => {
         <ContractPreview
           contractData={previewData}
           onBack={() => setShowPreview(false)}
+          onEdit={(data) => {
+            setPreviewData(data);
+            setShowPreview(false);
+          }}
           onSave={handleSaveContract}
           saving={saving}
         />
@@ -258,13 +261,61 @@ const ContractsComponent: React.FC = () => {
               setShowFromQuote(false);
               setShowCreationModal(true);
             }}
-            onShowPreviewChange={(data: any) => {
+            onShowPreviewChange={(data) => {
               setPreviewData(data);
               setShowPreview(true);
+              console.log("Preview data recibido:", data);
             }}
-            acceptedQuotes={acceptedQuotes} // Pasar las cotizaciones filtradas
+            acceptedQuotes={acceptedQuotes}
           />
         )}
+      </div>
+    );
+  }
+
+  if (showCreationModal) {
+    return (
+      <div className="p-4">
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowCreationModal(false);
+            }}
+          >
+            ← Volver a Contratos
+          </Button>
+        </div>
+        <SelectCreationModal
+          title="Crear Contrato"
+          onClose={() => setShowCreationModal(false)}
+          options={[
+            {
+              icon: (
+                <FileTextIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />
+              ),
+              title: "Crear desde Cotización",
+              description: "Usar datos de una cotización aceptada",
+              onClick: () => {
+                setShowFromQuote(true);
+                setShowCreationModal(false);
+              },
+            },
+            {
+              icon: (
+                <PlusIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />
+              ),
+              title: "Crear desde Cero",
+              description: "Crear un contrato completamente nuevo",
+              onClick: () => {
+                setShowForm(true);
+                setSelectedQuote(null);
+                setShowCreationModal(false);
+              },
+            },
+          ]}
+        />
       </div>
     );
   }
@@ -314,7 +365,26 @@ const ContractsComponent: React.FC = () => {
         </Button>
       </div>
 
-      {showFromQuote && (
+      {/* Sección de cotizaciones aceptadas */}
+      {showFromQuote && selectedQuote && (
+        <div className="mb-8 p-6 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              Cotización seleccionada: {selectedQuote.client_name}
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedQuote(null)}
+            >
+              Cambiar Cotización
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de cotizaciones aceptadas para seleccionar */}
+      {showFromQuote && !selectedQuote && (
         <div className="mb-8 p-6 bg-gray-50 rounded-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">
@@ -381,6 +451,7 @@ const ContractsComponent: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de creación */}
       {showCreationModal && (
         <SelectCreationModal
           title="Crear Contrato"
@@ -394,9 +465,6 @@ const ContractsComponent: React.FC = () => {
               description: "Usar datos de una cotización aceptada",
               onClick: () => {
                 setShowFromQuote(true);
-                setShowForm(false);
-                setSelectedQuote(null);
-                setPreviewData(null);
                 setShowCreationModal(false);
               },
             },
@@ -408,9 +476,7 @@ const ContractsComponent: React.FC = () => {
               description: "Crear un contrato completamente nuevo",
               onClick: () => {
                 setShowForm(true);
-                setShowFromQuote(false);
                 setSelectedQuote(null);
-                setPreviewData(null);
                 setShowCreationModal(false);
               },
             },
