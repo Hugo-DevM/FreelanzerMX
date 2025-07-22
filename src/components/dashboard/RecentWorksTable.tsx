@@ -60,7 +60,7 @@ const RecentWorksTable: React.FC<RecentWorksTableProps> = ({ data }) => {
           <thead>
             <tr className="border-b border-[#E5E7EB]">
               <th className="text-left py-3 px-4 text-sm font-medium text-[#666666]">
-                Número
+                Nombre
               </th>
               <th className="text-left py-3 px-4 text-sm font-medium text-[#666666]">
                 Cliente
@@ -77,13 +77,13 @@ const RecentWorksTable: React.FC<RecentWorksTableProps> = ({ data }) => {
             </tr>
           </thead>
           <tbody>
-            {data.map((work) => (
+            {data.map((work, index) => (
               <tr
                 key={work.id}
                 className="border-b border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors"
               >
                 <td className="py-3 px-4 text-sm text-[#1A1A1A] font-medium">
-                  #{work.id.toString().padStart(3, "0")}
+                  #{index + 1}
                 </td>
                 <td className="py-3 px-4 text-sm text-[#1A1A1A]">
                   {work.client}

@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { Suspense, useEffect } from "react";
 import dynamic from "next/dynamic";
 import ProtectedRoute from "../../components/auth/ProtectedRoute";
@@ -9,6 +7,11 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import { DashboardSkeleton } from "../../components/ui/SkeletonLoader";
 import { useDashboard } from "../../contexts/DashboardContext";
 import { FileText, DollarSign, Briefcase, ClipboardList } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { usePathname } from "next/navigation";
+// Componentes ligeros importados directamente
+import MetricsCard from "../../components/dashboard/MetricsCard";
+import RecentWorksTable from "../../components/dashboard/RecentWorksTable";
 
 // Fragmentación de componentes pesados (charts)
 const WeeklyIncomeChart = dynamic(
@@ -35,18 +38,67 @@ const IncomeDistributionChart = dynamic(
   }
 );
 
-// Componentes ligeros importados directamente
-import MetricsCard from "../../components/dashboard/MetricsCard";
-import RecentWorksTable from "../../components/dashboard/RecentWorksTable";
-
 export default function DashboardPage() {
   const { dashboard, loading, error, fetched, fetchData } = useDashboard();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !fetched) {
       fetchData();
     }
   }, [loading, fetched, fetchData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contracts",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "quotes",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "projects",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+        },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (pathname === "/dashboard") {
+      fetchData();
+    }
+  }, [pathname]);
 
   if (loading) {
     return (

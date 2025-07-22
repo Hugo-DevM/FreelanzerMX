@@ -216,14 +216,28 @@ export const getDashboardData = async (
           weekMap[weekLabel] = (weekMap[weekLabel] || 0) + (t.monto || 0);
         }
       });
-      weeklyIncome = Object.entries(weekMap).map(([week, amount]) => ({
-        week,
-        amount,
+      weeklyIncome = Object.entries(weekMap)
+        .map(([week, amount]) => ({ week, amount }))
+        .sort((a, b) => {
+          const numA = parseInt(a.week.split(" ")[1]);
+          const numB = parseInt(b.week.split(" ")[1]);
+          return numA - numB;
+        });
+      // Si solo hay un ingreso, agregar semana previa con 0 para graficar línea
+      if (weeklyIncome.length === 1) {
+        const currentWeekNumber = parseInt(weeklyIncome[0].week.split(" ")[1]);
+        if (currentWeekNumber > 1) {
+          weeklyIncome.unshift({
+            week: `Sem ${currentWeekNumber - 1}`,
+            amount: 0,
+          });
+        }
+      }
+      // Reasignar semana como Sem 0, Sem 1, Sem 2...
+      weeklyIncome = weeklyIncome.map((entry, index) => ({
+        week: `Sem ${index}`,
+        amount: entry.amount,
       }));
-      // Ordenar por semana
-      weeklyIncome.sort((a, b) =>
-        a.week.localeCompare(b.week, undefined, { numeric: true })
-      );
       // Distribución de ingresos y egresos
       const totalIngresos = transactions
         .filter((t) => t.tipo === "ingreso")
@@ -233,23 +247,36 @@ export const getDashboardData = async (
         .reduce((sum, t) => sum + (t.monto || 0), 0);
       const total = totalIngresos + totalEgresos;
       if (total > 0) {
-        incomeDistribution = [
-          {
-            category: "Ingresos",
-            percentage: Math.round((totalIngresos / total) * 100),
-            amount: totalIngresos,
-          },
-          {
-            category: "Egresos",
-            percentage: Math.round((totalEgresos / total) * 100),
-            amount: totalEgresos,
-          },
-        ];
-      } else {
-        incomeDistribution = [
-          { category: "Ingresos", percentage: 0, amount: 0 },
-          { category: "Egresos", percentage: 0, amount: 0 },
-        ];
+        if (totalIngresos > 0 && totalEgresos === 0) {
+          incomeDistribution = [
+            {
+              category: "Ingresos",
+              percentage: 100,
+              amount: totalIngresos,
+            },
+          ];
+        } else if (totalEgresos > 0 && totalIngresos === 0) {
+          incomeDistribution = [
+            {
+              category: "Egresos",
+              percentage: 100,
+              amount: totalEgresos,
+            },
+          ];
+        } else {
+          incomeDistribution = [
+            {
+              category: "Ingresos",
+              percentage: Math.round((totalIngresos / total) * 100),
+              amount: totalIngresos,
+            },
+            {
+              category: "Egresos",
+              percentage: Math.round((totalEgresos / total) * 100),
+              amount: totalEgresos,
+            },
+          ];
+        }
       }
     }
   } catch (e) {
