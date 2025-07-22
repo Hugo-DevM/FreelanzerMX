@@ -18,6 +18,8 @@ interface QuoteContextType {
   fetched: boolean;
   fetchData: () => Promise<void>;
   refreshData: () => Promise<void>;
+  setQuotes: React.Dispatch<React.SetStateAction<QuoteData[]>>;
+  userId: string | null;
 }
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
@@ -93,7 +95,16 @@ export const QuoteProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <QuoteContext.Provider
-      value={{ quotes, loading, error, fetched, fetchData, refreshData }}
+      value={{
+        quotes,
+        loading,
+        error,
+        fetched,
+        fetchData,
+        refreshData,
+        setQuotes,
+        userId: user?.uid || null,
+      }}
     >
       {children}
     </QuoteContext.Provider>
