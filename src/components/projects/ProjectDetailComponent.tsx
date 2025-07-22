@@ -9,6 +9,8 @@ import {
   updateTask,
   deleteTask,
   updateProject,
+  getProjectTasks,
+  calculateProgress,
 } from "../../services/projectService";
 import { supabase } from "../../lib/supabase";
 import Card from "../ui/Card";
@@ -39,6 +41,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const progressRef = useRef<number>(0);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -49,19 +52,14 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
 
   useEffect(() => {
     loadProject();
+    loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // Suscripción en tiempo real para cambios en el proyecto
   useEffect(() => {
     if (!projectId) return;
-
-    console.log(
-      "🔔 Configurando suscripción en tiempo real para proyecto:",
-      projectId
-    );
-
-    // Suscripción a cambios en el proyecto (incluye cambios en tareas ya que están en el mismo documento)
+    // Suscripción a cambios en el proyecto
     const projectSubscription = supabase
       .channel(`project-${projectId}`)
       .on(
@@ -96,6 +94,34 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     return () => {
       console.log("🔕 Desuscribiendo de cambios en tiempo real");
       projectSubscription.unsubscribe();
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`tasks-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_tasks",
+          filter: `project_id=eq.${projectId}`,
+        },
+        async () => {
+          const updatedTasks = await getProjectTasks(projectId);
+          setTasks(updatedTasks);
+
+          // Actualizar solo el progreso del proyecto sin llamar a loadProject
+          setProject((prev) =>
+            prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
     };
   }, [projectId]);
 
@@ -156,6 +182,15 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
+  const loadTasks = async () => {
+    try {
+      const loadedTasks = await getProjectTasks(projectId);
+      setTasks(loadedTasks);
+    } catch (err: any) {
+      setError(err.message || "Error al cargar las tareas");
+    }
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -167,44 +202,18 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     e.preventDefault();
     if (!project) return;
     try {
-      const taskId =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now().toString();
+      const taskId = crypto?.randomUUID?.() || Date.now().toString();
       const taskData: CreateTaskData = {
         id: taskId,
         title: taskForm.title,
         description: taskForm.description || undefined,
-        dueDate: taskForm.dueDate || undefined, // Guardar como string
+        dueDate: taskForm.dueDate || undefined,
         estimatedHours: taskForm.estimatedHours
           ? parseFloat(taskForm.estimatedHours)
           : undefined,
       };
-      const newTask: Task = {
-        id: taskId,
-        ...taskData,
-        status: "todo",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const updatedTasks = [...project.tasks, newTask];
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress = Math.round((doneCount / updatedTasks.length) * 100);
-      // Cambia el estado automáticamente
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
-      }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
+      await addTaskToProject(projectId, taskData);
+      // No necesitas actualizar tareas manualmente aquí si usas realtime
       setTaskForm({
         title: "",
         description: "",
@@ -212,24 +221,21 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
         estimatedHours: "",
       });
       setShowAddTask(false);
-      await addTaskToProject(projectId, taskData);
-      await updateProject(projectId, { status: newStatus, progress });
     } catch (err: any) {
-      console.error("Error adding task:", err);
       setError(err.message || "Error al agregar la tarea");
     }
   };
 
   const handleUpdateTaskStatus = useCallback(
     async (taskId: string, status: Task["status"]) => {
-      console.log("🔄 Actualizando tarea:", taskId, "a estado:", status);
-
       try {
-        // El servicio updateTask ahora maneja todo: actualizar tarea, progreso y estado
-        await updateTask(projectId, taskId, { status });
-        console.log("✅ Tarea actualizada exitosamente");
+        await updateTask(taskId, { status });
+        const updatedTasks = await getProjectTasks(projectId);
+        setTasks(updatedTasks);
+        setProject((prev) =>
+          prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
+        );
       } catch (error) {
-        console.error("Error updating task:", error);
         setError("Error al actualizar la tarea");
       }
     },
@@ -241,36 +247,17 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   };
 
   const confirmDeleteTask = async () => {
-    if (!project || !deleteTaskId) return;
+    if (!deleteTaskId) return;
     setDeleting(true);
     try {
-      const updatedTasks = project.tasks.filter(
-        (task) => task.id !== deleteTaskId
+      await deleteTask(deleteTaskId);
+      const updatedTasks = await getProjectTasks(projectId);
+      setTasks(updatedTasks);
+      setProject((prev) =>
+        prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
       );
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress =
-        updatedTasks.length > 0
-          ? Math.round((doneCount / updatedTasks.length) * 100)
-          : 0;
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
-      }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
-      await deleteTask(projectId, deleteTaskId);
-      await updateProject(projectId, { status: newStatus, progress });
       setDeleteTaskId(null);
     } catch (err: any) {
-      console.error("Error deleting task:", err);
       setError(err.message || "Error al eliminar la tarea");
     } finally {
       setDeleting(false);
@@ -458,7 +445,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     Tareas
                   </h3>
                   <p className="text-lg font-semibold text-[#1A1A1A]">
-                    {project.tasks.length} tareas
+                    {tasks.length} tareas
                   </p>
                 </div>
               </div>
@@ -513,7 +500,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           <div className="border-b border-gray-200 mb-6">
             <nav className="-mb-px flex space-x-8">
               {[
-                { id: "tasks", label: "Tareas", count: project.tasks.length },
+                { id: "tasks", label: "Tareas", count: tasks.length },
                 { id: "notes", label: "Notas", count: 0 },
                 { id: "files", label: "Archivos", count: 0 },
               ].map((tab) => (
@@ -553,7 +540,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 </Button>
               </div>
 
-              {project.tasks.length === 0 ? (
+              {tasks.length === 0 ? (
                 <Card>
                   <div className="p-8 text-center">
                     <div className="text-[#9ae600] text-4xl mb-4">📝</div>
@@ -574,7 +561,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {project.tasks.map((task) => (
+                  {tasks.map((task) => (
                     <Card key={task.id}>
                       <div className="p-4">
                         <div className="flex items-start justify-between">
