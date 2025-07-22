@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useQuotes } from "../../contexts/QuoteContext";
+import { useAuthContext } from "../../contexts/AuthContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import {
@@ -17,6 +18,7 @@ import { PlusIcon, EyeIcon } from "lucide-react";
 import QuoteForm from "./QuoteForm";
 import QuotePreview from "./QuotePreview";
 import { QuoteTableSkeleton } from "../ui/SkeletonLoader";
+import { useRouter, usePathname } from "next/navigation";
 
 // Corrige desfase de fechas por zona horaria
 const parseLocalDate = (dateString: string) => {
@@ -25,6 +27,7 @@ const parseLocalDate = (dateString: string) => {
 };
 
 export default function QuotesComponent() {
+  const { user } = useAuthContext();
   const { quotes, loading, error, refreshData } = useQuotes();
   const [showForm, setShowForm] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<QuoteData | null>(null);
@@ -68,6 +71,10 @@ export default function QuotesComponent() {
       supabase.removeChannel(channel);
     };
   }, [refreshData]);
+
+  useEffect(() => {
+    setOptimisticQuotes(quotes);
+  }, [quotes]);
 
   const handleStatusChange = async (
     quoteId: string,
@@ -122,20 +129,25 @@ export default function QuotesComponent() {
     }
   };
 
-  const handleDeleteQuote = async (quoteId: string) => {
-    setQuoteToDelete(quoteId);
-  };
+  const router = useRouter();
+  const pathname = usePathname();
 
   const confirmDeleteQuote = async () => {
     if (!quoteToDelete) return;
     setDeleting(true);
     try {
       await deleteQuote(quoteToDelete);
-      setQuoteToDelete(null);
-      await refreshData();
-      if (selectedQuote && selectedQuote.id === quoteToDelete) {
-        setSelectedQuote(null);
+
+      const updated = quotes.filter((q) => q.id !== quoteToDelete);
+      setOptimisticQuotes(updated);
+      if (user?.uid) {
+        localStorage.setItem(`${user.uid}-quotes`, JSON.stringify(updated));
       }
+      setQuoteToDelete(null);
+      setSelectedQuote(null);
+
+      // refresca desde base si quieres mantenerlo limpio
+      await refreshData();
     } catch (error) {
       console.error("Error deleting quote:", error);
       setLocalError("Error al eliminar la cotización");
