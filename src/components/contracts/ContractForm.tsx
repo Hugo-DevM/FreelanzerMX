@@ -43,7 +43,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
       "",
     clientName: initialData?.clientName || "",
     service: initialData?.service || "",
-    amount: initialData?.amount ?? (undefined as any),
+    amount: initialData?.amount ?? 0,
     currency: initialData?.currency || "MXN",
     paymentMethod: initialData?.paymentMethod || "",
     startDate:
@@ -72,16 +72,14 @@ const ContractForm: React.FC<ContractFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasInitialized = React.useRef(false);
 
-  // Solo inicializar una vez cuando hay initialData
+  // Sincronizar formData con initialData cada vez que cambie
   useEffect(() => {
-    if (initialData && !hasInitialized.current) {
+    if (initialData) {
       setFormData((prev) => ({
         ...prev,
         ...initialData,
       }));
-      hasInitialized.current = true;
     }
   }, [initialData]);
 
@@ -90,8 +88,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
     if (
       userProfile &&
       !initialData &&
-      !formData.city &&
-      !hasInitialized.current
+      !formData.city
     ) {
       const userCity =
         userProfile.address?.city || userProfile.address?.state || "";
@@ -102,7 +99,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         }));
       }
     }
-  }, [userProfile, initialData, hasInitialized]);
+  }, [userProfile, initialData, formData.city]);
 
   useEffect(() => {
     if (onShowPreviewChange && showPreview) {
@@ -163,6 +160,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         setSuccess(false);
         if (onBack) onBack();
       }, 1200);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e.message || "Error al guardar el contrato");
     } finally {
@@ -318,7 +316,7 @@ export const ContractFromQuoteForm: React.FC<{
     freelancerName: "",
     clientName: "",
     service: "",
-    amount: undefined as any,
+    amount: 0,
     currency: "MXN",
     paymentMethod: "",
     startDate: new Date().toISOString().split("T")[0],
@@ -334,7 +332,6 @@ export const ContractFromQuoteForm: React.FC<{
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [hasInitialized, setHasInitialized] = React.useState(false); // Agregar estado para controlar inicialización
 
   React.useEffect(() => {
     if (acceptedQuotes !== undefined) {
@@ -343,7 +340,7 @@ export const ContractFromQuoteForm: React.FC<{
   }, [acceptedQuotes]);
 
   React.useEffect(() => {
-    if (selectedQuoteId && !hasInitialized) {
+    if (selectedQuoteId) {
       const quote = quotes.find((q) => q.id === selectedQuoteId);
       if (quote) {
         setFormData({
@@ -360,10 +357,9 @@ export const ContractFromQuoteForm: React.FC<{
           city: quote.city,
           quoteId: quote.id,
         });
-        setHasInitialized(true);
       }
     }
-  }, [selectedQuoteId, quotes, hasInitialized]);
+  }, [selectedQuoteId, quotes]);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -415,6 +411,7 @@ export const ContractFromQuoteForm: React.FC<{
         setSuccess(false);
         if (onBack) onBack();
       }, 1200);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e.message || "Error al guardar el contrato");
     } finally {
@@ -462,7 +459,6 @@ export const ContractFromQuoteForm: React.FC<{
           value={selectedQuoteId}
           onChange={(e) => {
             setSelectedQuoteId(e.target.value);
-            setHasInitialized(false); // Resetear cuando se selecciona una nueva cotización
           }}
           required
         >
