@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
 import Link from "next/link";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
@@ -23,7 +23,6 @@ import { validatePassword } from "../../utils/passwordValidation";
 import { checkDisplayNameExists, checkEmailExists } from "../../services/userService";
 
 const SignupForm: React.FC = () => {
-  const router = useRouter();
   const { signUp, signInWithGoogle, loading, error, clearError } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -47,16 +46,24 @@ const SignupForm: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    if (name === "displayName") {
+      // Solo permite minúsculas, números, punto y guion bajo, sin espacios
+      const filtered = value.toLowerCase().replace(/[^a-z0-9._]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: filtered }));
+      setDisplayNameExists(false);
+      if (error) clearError();
+      if (formErrors[name]) {
+        setFormErrors((prev) => ({ ...prev, [name]: "" }));
+      }
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Validar contraseña en tiempo real
     if (name === "password") {
       setPasswordValidation(validatePassword(value));
-    }
-
-    // Resetear estado del nombre de usuario cuando cambia
-    if (name === "displayName") {
-      setDisplayNameExists(false);
     }
 
     // Resetear estado del email cuando cambia
@@ -138,6 +145,8 @@ const SignupForm: React.FC = () => {
       errors.displayName = "El nombre de usuario es requerido";
     } else if (formData.displayName.length < 3) {
       errors.displayName = "El nombre de usuario debe tener al menos 3 caracteres";
+    } else if (!/^[a-z0-9._]+$/.test(formData.displayName)) {
+      errors.displayName = "Solo minúsculas, números, punto y guion bajo. Sin espacios.";
     } else if (displayNameExists) {
       errors.displayName = "Este nombre de usuario ya está en uso";
     }
@@ -181,7 +190,7 @@ const SignupForm: React.FC = () => {
       });
       // El hook useAuth se encarga de redirigir a /verify-email
       // No necesitamos hacer router.push aquí
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Signup form error:", error);
       // El error ya se maneja en el hook useAuth, no necesitamos hacer nada aquí
     }
@@ -190,7 +199,9 @@ const SignupForm: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle();
-    } catch (error) {}
+    } catch {
+      // Error handled by useAuth hook
+    }
   };
 
   return (
@@ -242,7 +253,7 @@ const SignupForm: React.FC = () => {
                 placeholder="nombre_usuario"
                 leftIcon={<UserIcon />}
                 error={formErrors.displayName}
-                helperText="Este será tu nombre público"
+                helperText="Solo minúsculas, números, punto y guion bajo. Sin espacios."
                 required
               />
               

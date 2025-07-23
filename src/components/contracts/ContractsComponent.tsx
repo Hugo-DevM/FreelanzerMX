@@ -37,6 +37,7 @@ const ContractsComponent: React.FC = () => {
   const [selectedQuote, setSelectedQuote] = useState<QuoteData | null>(null);
   const [showCreationModal, setShowCreationModal] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [previewData, setPreviewData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -85,6 +86,7 @@ const ContractsComponent: React.FC = () => {
       );
       setAcceptedQuotes(filteredQuotes);
       console.log("=== FIN loadAcceptedQuotes ===");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error loading accepted quotes:", error);
       setComponentError("Error al cargar las cotizaciones aceptadas");
@@ -112,7 +114,7 @@ const ContractsComponent: React.FC = () => {
           table: "contracts",
           filter: `user_id=eq.${user.uid}`,
         },
-        (payload) => {
+        () => {
           // Recargar contratos solo si hay cambios relevantes
           refreshData();
         }
@@ -168,6 +170,7 @@ const ContractsComponent: React.FC = () => {
           refreshData();
           loadAcceptedQuotes(); // Recargar las cotizaciones para actualizar la lista
         }, 1200);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         console.error("Error al guardar contrato:", e);
         setSaveError(e.message || "Error al guardar el contrato");
@@ -182,8 +185,9 @@ const ContractsComponent: React.FC = () => {
           contractData={previewData}
           onBack={() => setShowPreview(false)}
           onEdit={(data) => {
-            setPreviewData(data);
-            setShowPreview(false);
+            setPreviewData(data);    // Actualiza los datos
+            setShowPreview(false);   // Cierra la vista previa
+            setShowForm(true);       // MUESTRA el formulario de nuevo
           }}
           onSave={handleSaveContract}
           saving={saving}
@@ -229,7 +233,7 @@ const ContractsComponent: React.FC = () => {
         {showForm ? (
           <ContractForm
             initialData={
-              selectedQuote
+              previewData || (selectedQuote
                 ? {
                     freelancerName: selectedQuote.freelancer_name,
                     clientName: selectedQuote.client_name,
@@ -242,7 +246,7 @@ const ContractsComponent: React.FC = () => {
                     city: selectedQuote.city,
                     quoteId: selectedQuote.id,
                   }
-                : undefined
+                : undefined)
             }
             onBack={() => {
               setShowForm(false);
@@ -250,6 +254,7 @@ const ContractsComponent: React.FC = () => {
               setPreviewData(null);
               refreshData();
             }}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onShowPreviewChange={(data: any) => {
               setPreviewData(data);
               setShowPreview(true);
