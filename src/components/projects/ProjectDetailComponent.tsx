@@ -42,6 +42,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -183,11 +184,14 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   };
 
   const loadTasks = async () => {
+    setLoadingTasks(true);
     try {
       const loadedTasks = await getProjectTasks(projectId);
       setTasks(loadedTasks);
     } catch (err: any) {
       setError(err.message || "Error al cargar las tareas");
+    } finally {
+      setLoadingTasks(false);
     }
   };
 
@@ -213,7 +217,21 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           : undefined,
       };
       await addTaskToProject(projectId, taskData);
-      // No necesitas actualizar tareas manualmente aquí si usas realtime
+      // Optimistic update: agrega la tarea localmente
+      setTasks((prev) => [
+        ...prev,
+        {
+          id: taskId, // aseguramos que siempre es string
+          title: taskData.title,
+          description: taskData.description,
+          status: "todo",
+          dueDate: taskData.dueDate,
+          estimatedHours: taskData.estimatedHours,
+          actualHours: undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
       setTaskForm({
         title: "",
         description: "",
@@ -539,8 +557,16 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                   Agregar Tarea
                 </Button>
               </div>
-
-              {tasks.length === 0 ? (
+              {loadingTasks ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse h-20 bg-gray-200 rounded"
+                    />
+                  ))}
+                </div>
+              ) : tasks.length === 0 ? (
                 <Card>
                   <div className="p-8 text-center">
                     <div className="text-[#9ae600] text-4xl mb-4">📝</div>
@@ -701,6 +727,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     type="date"
                     value={taskForm.dueDate}
                     onChange={handleInputChange}
+                    required
                   />
 
                   <Input
@@ -712,6 +739,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     placeholder="0"
                     min="0"
                     step="0.5"
+                    required
                   />
                 </div>
 
