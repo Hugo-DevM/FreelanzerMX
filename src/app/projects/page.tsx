@@ -8,7 +8,7 @@ export default function ProjectsPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="w-full">
+        <div className="w-full bg-amber-300">
           <ProjectsComponent />
         </div>
       </DashboardLayout>
