@@ -12,7 +12,7 @@ export default function ProjectDetailPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="w-full bg-amber-300">
+        <div className="w-full">
           <ProjectDetailComponent projectId={projectId} />
         </div>
       </DashboardLayout>
