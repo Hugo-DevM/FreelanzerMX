@@ -272,7 +272,7 @@ const Sidebar: React.FC = () => {
             <MenuItem
               key={item.href}
               item={item}
-              isActive={pathname === item.href}
+              isActive={pathname.startsWith(item.href)}
             />
           ))}
         </ul>
