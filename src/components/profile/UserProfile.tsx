@@ -11,7 +11,7 @@ import { supabase } from "../../lib/supabase";
 import ConfirmModal from "../shared/ConfirmModal";
 import EstadoCombobox from "../ui/EstadoCombobox";
 import CiudadCombobox from "../ui/CiudadCombobox";
-import { User } from '@supabase/supabase-js';
+import { User } from "@supabase/supabase-js";
 
 const UserProfileComponent: React.FC = () => {
   const { userProfile, refreshUserProfile } = useAuthContext();
@@ -68,9 +68,18 @@ const UserProfileComponent: React.FC = () => {
     if (userProfile || authUser) {
       const meta = authUser?.user_metadata || {};
       setFormData({
-        first_name: userProfile?.first_name || meta.given_name || meta.full_name?.split(' ')[0] || "",
-        last_name: userProfile?.last_name || meta.family_name || meta.full_name?.split(' ').slice(1).join(' ') || "",
-        display_name: userProfile?.display_name || meta.name || meta.full_name || "",
+        first_name:
+          userProfile?.first_name ||
+          meta.given_name ||
+          meta.full_name?.split(" ")[0] ||
+          "",
+        last_name:
+          userProfile?.last_name ||
+          meta.family_name ||
+          meta.full_name?.split(" ").slice(1).join(" ") ||
+          "",
+        display_name:
+          userProfile?.display_name || meta.name || meta.full_name || "",
         phone: userProfile?.phone || meta.phone || "",
         company: userProfile?.company || meta.company || "",
         website: userProfile?.website || "",
@@ -89,7 +98,9 @@ const UserProfileComponent: React.FC = () => {
           industry: userProfile?.business_info?.industry ?? "",
         },
       });
-      setInitialPhoto(userProfile?.photo_url || meta.avatar_url || meta.picture || null);
+      setInitialPhoto(
+        userProfile?.photo_url || meta.avatar_url || meta.picture || null
+      );
     }
   }, [userProfile, authUser]);
 
@@ -284,7 +295,7 @@ const UserProfileComponent: React.FC = () => {
   function getHighResGooglePhoto(url: string) {
     if (!url) return url;
     // Solo para URLs de Google
-    return url.replace(/s[0-9]+-c/, 's400-c');
+    return url.replace(/s[0-9]+-c/, "s400-c");
   }
 
   if (!userProfile) {
@@ -298,9 +309,10 @@ const UserProfileComponent: React.FC = () => {
     );
   }
 
-  const highResPhoto = initialPhoto && initialPhoto.includes('googleusercontent')
-    ? getHighResGooglePhoto(initialPhoto)
-    : initialPhoto;
+  const highResPhoto =
+    initialPhoto && initialPhoto.includes("googleusercontent")
+      ? getHighResGooglePhoto(initialPhoto)
+      : initialPhoto;
 
   return (
     <div className="p-4">
@@ -334,7 +346,9 @@ const UserProfileComponent: React.FC = () => {
                     src={
                       profileImage && profileImage.startsWith("data:")
                         ? profileImage
-                        : signedProfileImageUrl || highResPhoto || "/images/Logo.svg"
+                        : signedProfileImageUrl ||
+                          highResPhoto ||
+                          "/images/Logo.svg"
                     }
                     alt="Foto de perfil"
                     className="w-80 h-80 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-[#9ae700] transition-transform duration-200 hover:scale-105"
