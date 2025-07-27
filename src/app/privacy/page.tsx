@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button, Logo } from "@/components/ui";
+import { Button, Logo } from "../../components/ui";
 
 export default function PrivacyPage() {
   const router = useRouter();
