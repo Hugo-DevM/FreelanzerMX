@@ -18,6 +18,7 @@ export interface ContractFormData {
   startDate: string;
   deliveryDate: string;
   city: string;
+  quoteId?: string;
 }
 
 interface ContractFormProps {
@@ -42,24 +43,37 @@ const ContractForm: React.FC<ContractFormProps> = ({
       "",
     clientName: initialData?.clientName || "",
     service: initialData?.service || "",
-    amount: initialData?.amount ?? (undefined as any),
+    amount: initialData?.amount ?? 0,
     currency: initialData?.currency || "MXN",
     paymentMethod: initialData?.paymentMethod || "",
-    startDate: initialData?.startDate || new Date().toISOString().split("T")[0],
+    startDate:
+      initialData?.startDate ||
+      (() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      })(),
     deliveryDate:
       initialData?.deliveryDate ||
       (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 7);
-        return d.toISOString().split("T")[0];
+        const today = new Date();
+        today.setDate(today.getDate() + 7);
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
       })(),
     city: initialData?.city || "",
+    quoteId: initialData?.quoteId || "",
   });
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sincronizar formData con initialData cada vez que cambie
   useEffect(() => {
     if (initialData) {
       setFormData((prev) => ({
@@ -67,7 +81,25 @@ const ContractForm: React.FC<ContractFormProps> = ({
         ...initialData,
       }));
     }
-  }, [JSON.stringify(initialData)]);
+  }, [initialData]);
+
+  // Solo llenar ciudad si no se ha inicializado y no hay initialData
+  useEffect(() => {
+    if (
+      userProfile &&
+      !initialData &&
+      !formData.city
+    ) {
+      const userCity =
+        userProfile.address?.city || userProfile.address?.state || "";
+      if (userCity) {
+        setFormData((prev) => ({
+          ...prev,
+          city: userCity,
+        }));
+      }
+    }
+  }, [userProfile, initialData, formData.city]);
 
   useEffect(() => {
     if (onShowPreviewChange && showPreview) {
@@ -76,7 +108,22 @@ const ContractForm: React.FC<ContractFormProps> = ({
   }, [showPreview, onShowPreviewChange, formData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type } = e.target;
+
+    if (name === "amount") {
+      // Manejar específicamente el campo de monto
+      const numericValue = value.replace(/[^0-9]/g, ""); // Solo permitir números
+      const parsedValue = numericValue === "" ? 0 : parseInt(numericValue, 10);
+      setFormData({
+        ...formData,
+        [name]: parsedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -113,6 +160,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         setSuccess(false);
         if (onBack) onBack();
       }, 1200);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e.message || "Error al guardar el contrato");
     } finally {
@@ -126,6 +174,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
         <ContractPreview
           contractData={formData}
           onBack={() => setShowPreview(false)}
+          onEdit={(data) => {
+            setFormData(data); // Actualizar el formulario con los datos actuales
+            setShowPreview(false); // Regresar al formulario
+          }}
         />
         <div className="flex justify-end gap-4 mt-6">
           <Button onClick={handleSave} disabled={saving}>
@@ -189,6 +241,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
               onChange={handleChange}
               required
               className="w-40"
+              min="0"
+              step="1"
             />
             <div className="flex flex-col w-full">
               <label className="mb-1 font-medium text-sm text-[#1A1A1A]">
@@ -253,7 +307,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
 export const ContractFromQuoteForm: React.FC<{
   onBack?: () => void;
   onShowPreviewChange?: (data: ContractFormData) => void;
-}> = ({ onBack, onShowPreviewChange }) => {
+  acceptedQuotes?: QuoteData[]; // Cotizaciones filtradas que ya no han sido convertidas
+}> = ({ onBack, onShowPreviewChange, acceptedQuotes = [] }) => {
   const { user } = useAuthContext();
   const [quotes, setQuotes] = React.useState<QuoteData[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>("");
@@ -261,7 +316,7 @@ export const ContractFromQuoteForm: React.FC<{
     freelancerName: "",
     clientName: "",
     service: "",
-    amount: undefined as any,
+    amount: 0,
     currency: "MXN",
     paymentMethod: "",
     startDate: new Date().toISOString().split("T")[0],
@@ -271,18 +326,19 @@ export const ContractFromQuoteForm: React.FC<{
       return d.toISOString().split("T")[0];
     })(),
     city: "",
+    quoteId: "",
   });
   const [showPreview, setShowPreview] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    if (user) {
-      getUserQuotes(user.uid).then((all) => {
-        setQuotes(all.filter((q) => q.status === "approved"));
-      });
+    if (acceptedQuotes !== undefined) {
+      setQuotes(acceptedQuotes);
     }
-  }, [user]);
+  }, [acceptedQuotes]);
+
   React.useEffect(() => {
     if (selectedQuoteId) {
       const quote = quotes.find((q) => q.id === selectedQuoteId);
@@ -292,13 +348,14 @@ export const ContractFromQuoteForm: React.FC<{
           clientName: quote.client_name,
           service: quote.services.map((s) => s.description).join(", "),
           amount: quote.total,
-          currency: quote.currency,
+          currency: quote.currency || "MXN",
           paymentMethod: quote.payment_terms || "",
           startDate:
             quote.delivery_date || new Date().toISOString().split("T")[0],
           deliveryDate:
             quote.delivery_date || new Date().toISOString().split("T")[0],
           city: quote.city,
+          quoteId: quote.id,
         });
       }
     }
@@ -306,7 +363,22 @@ export const ContractFromQuoteForm: React.FC<{
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === "amount") {
+      // Manejar específicamente el campo de monto
+      const numericValue = value.replace(/[^0-9]/g, ""); // Solo permitir números
+      const parsedValue = numericValue === "" ? 0 : parseInt(numericValue, 10);
+      setFormData({
+        ...formData,
+        [name]: parsedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,12 +404,14 @@ export const ContractFromQuoteForm: React.FC<{
         start_date: formData.startDate,
         delivery_date: formData.deliveryDate,
         city: formData.city,
+        quote_id: formData.quoteId,
       });
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         if (onBack) onBack();
       }, 1200);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e.message || "Error al guardar el contrato");
     } finally {
@@ -350,6 +424,10 @@ export const ContractFromQuoteForm: React.FC<{
         <ContractPreview
           contractData={formData}
           onBack={() => setShowPreview(false)}
+          onEdit={(data) => {
+            setFormData(data); // Actualizar el formulario con los datos actuales
+            setShowPreview(false); // Regresar al formulario
+          }}
         />
         <div className="flex justify-end gap-4 mt-6">
           <Button onClick={() => setShowPreview(false)} variant="outline">
@@ -379,7 +457,9 @@ export const ContractFromQuoteForm: React.FC<{
         <select
           className="w-full h-[48px] px-4 border border-[#E5E7EB] rounded-lg bg-white text-[#0E0E2C] focus:outline-none focus:ring-2 focus:ring-[#9ae600]"
           value={selectedQuoteId}
-          onChange={(e) => setSelectedQuoteId(e.target.value)}
+          onChange={(e) => {
+            setSelectedQuoteId(e.target.value);
+          }}
           required
         >
           <option value="">Selecciona una cotización</option>
@@ -389,7 +469,7 @@ export const ContractFromQuoteForm: React.FC<{
               {q.services.map((s) => s.description).join(", ")} -{" "}
               {q.total.toLocaleString("es-MX", {
                 style: "currency",
-                currency: q.currency,
+                currency: q.currency || "MXN",
               })}
             </option>
           ))}
@@ -425,6 +505,8 @@ export const ContractFromQuoteForm: React.FC<{
           onChange={handleChange}
           required
           className="w-40"
+          min="0"
+          step="1"
         />
         <div className="flex flex-col w-full">
           <label className="mb-1 font-medium text-sm text-[#1A1A1A]">
@@ -488,7 +570,8 @@ export const ContractFromQuoteForm: React.FC<{
 export const ContractFromQuoteModal: React.FC<{
   onClose: () => void;
   onShowPreviewChange?: (data: ContractFormData) => void;
-}> = ({ onClose, onShowPreviewChange }) => {
+  acceptedQuotes?: QuoteData[]; // Cotizaciones filtradas que ya no han sido convertidas
+}> = ({ onClose, onShowPreviewChange, acceptedQuotes }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -511,6 +594,7 @@ export const ContractFromQuoteModal: React.FC<{
             <ContractFromQuoteForm
               onBack={onClose}
               onShowPreviewChange={onShowPreviewChange}
+              acceptedQuotes={acceptedQuotes}
             />
           </div>
         </Card>

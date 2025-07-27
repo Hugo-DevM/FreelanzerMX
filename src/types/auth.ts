@@ -14,6 +14,13 @@ export interface AuthFormData {
   confirmPassword?: string;
 }
 
+export interface PasswordValidationResult {
+  isValid: boolean;
+  errors: string[];
+  strength: 'weak' | 'medium' | 'strong';
+  score: number; // 0-100
+}
+
 export interface SignUpFormData extends AuthFormData {
   firstName: string;
   lastName: string;
@@ -36,7 +43,9 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   userProfile: UserProfile | null;
   profileLoading: boolean;
+  userPlan: "free" | "pro" | "team";
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (
     email: string,
     password: string,

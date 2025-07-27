@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { QuoteData } from "./quoteService";
+import { getFreelancerObligations } from "./obligationsService";
 
 export interface PDFContractData {
   freelancerName: string;
@@ -149,20 +150,78 @@ export const generateQuotePDF = async (quoteData: QuoteData): Promise<Blob> => {
   y += 22;
 
   // Condiciones/Vigencia/Entrega
+  const columnWidth = contentWidth / 3;
+  const columnSpacing = 5;
+
   addText("Condiciones de Pago", margin, y, { bold: true });
-  addText("Vigencia", margin + contentWidth / 3, y, { bold: true });
-  addText("Tiempo de Entrega", margin + (2 * contentWidth) / 3, y, {
-    bold: true,
-  });
-  y += 6;
-  addText(quoteData.payment_terms || "-", margin, y);
-  addText(`${quoteData.validity} días naturales`, margin + contentWidth / 3, y);
+  addText("Vigencia", margin + columnWidth + columnSpacing, y, { bold: true });
   addText(
-    `${quoteData.delivery_time} días hábiles`,
-    margin + (2 * contentWidth) / 3,
+    "Tiempo de Entrega",
+    margin + 2 * columnWidth + 2 * columnSpacing,
+    y,
+    {
+      bold: true,
+    }
+  );
+  y += 6;
+
+  // Función para dividir texto largo en múltiples líneas
+  const splitTextToFit = (text: string, maxWidth: number) => {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = pdf.getTextWidth(testLine);
+
+      if (testWidth <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Si una sola palabra es muy larga, la cortamos
+          lines.push(word.substring(0, Math.floor(maxWidth / 3)));
+          currentLine = word.substring(Math.floor(maxWidth / 3));
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  };
+
+  // Condiciones de Pago con límite de ancho
+  const paymentTermsLines = splitTextToFit(
+    quoteData.payment_terms || "-",
+    columnWidth - 4
+  );
+  paymentTermsLines.forEach((line, index) => {
+    addText(line, margin, y + index * 5);
+  });
+
+  // Vigencia
+  addText(
+    `${quoteData.validity} días naturales`,
+    margin + columnWidth + columnSpacing,
     y
   );
-  y += 16;
+
+  // Tiempo de Entrega
+  addText(
+    `${quoteData.delivery_time} días hábiles`,
+    margin + 2 * columnWidth + 2 * columnSpacing,
+    y
+  );
+
+  // Ajustar Y para la siguiente sección basado en la altura del texto más largo
+  const maxLines = Math.max(paymentTermsLines.length, 1);
+  y += maxLines * 5 + 10;
 
   // Footer
   addLine();
@@ -227,6 +286,22 @@ export const generateContractPDF = async (
     deliveryDate,
     city,
   } = contractData;
+
+  // Obtener obligaciones específicas del servicio
+  let obligations: string[] = [];
+  try {
+    obligations = await getFreelancerObligations(service);
+  } catch (error) {
+    console.error("Error getting obligations:", error);
+    // Fallback a obligaciones genéricas
+    obligations = [
+      `Ejecutar el servicio de "${service}" de manera profesional y eficiente.`,
+      "Cumplir con todos los entregables acordados en el contrato.",
+      "Mantener estándares de calidad profesionales en todo el trabajo realizado.",
+      "Entregar el trabajo dentro del plazo establecido.",
+      "Realizar hasta dos rondas de ajustes menores sin costo adicional.",
+    ];
+  }
 
   let y = 30;
   pdf.setFontSize(18);
@@ -300,10 +375,12 @@ export const generateContractPDF = async (
   pdf.text("2. Obligaciones del freelancer", 20, y);
   y += 9;
   pdf.setFont("helvetica", "normal");
-  lines = pdf.splitTextToSize(
-    `- Diseñar y desarrollar una landing page responsiva según los requerimientos previamente acordados.\n- Entregar el trabajo dentro del plazo establecido.\n- Realizar hasta dos rondas de ajustes menores sin costo adicional.\n- Mantener comunicación regular con la cliente sobre el avance del proyecto.`,
-    170
-  );
+
+  // Crear texto de obligaciones dinámicas
+  const obligationsText = obligations
+    .map((obligation) => `- ${obligation}`)
+    .join("\n");
+  lines = pdf.splitTextToSize(obligationsText, 170);
   y = ensureSpace(pdf, y, lines.length * 7 + 4);
   pdf.text(lines, 20, y);
   y += lines.length * 7 + 4;
@@ -329,7 +406,9 @@ export const generateContractPDF = async (
   lines = pdf.splitTextToSize(
     `El monto acordado por los servicios es de $${amount.toLocaleString(
       "es-MX"
-    )} ${currency}, pagaderos de la siguiente manera: ${paymentMethod}`,
+    )} ${
+      currency || "MXN"
+    }, pagaderos de la siguiente manera: ${paymentMethod}`,
     170
   );
   y = ensureSpace(pdf, y, lines.length * 7 + 4);

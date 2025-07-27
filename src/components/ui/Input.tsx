@@ -44,7 +44,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <input ref={ref} className={classes} {...props} />
 
           {rightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
               <div className="text-[#6B7280]">{rightIcon}</div>
             </div>
           )}

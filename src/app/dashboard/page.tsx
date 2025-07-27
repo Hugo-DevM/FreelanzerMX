@@ -1,141 +1,195 @@
 "use client";
 
-import { useAuthContext } from "../../contexts/AuthContext";
+import { Suspense, useEffect } from "react";
+import dynamic from "next/dynamic";
 import ProtectedRoute from "../../components/auth/ProtectedRoute";
 import DashboardLayout from "../../components/layout/DashboardLayout";
-import Button from "../../components/ui/Button";
+import { DashboardSkeleton } from "../../components/ui/SkeletonLoader";
+import { useDashboard } from "../../contexts/DashboardContext";
+import { FileText, DollarSign, Briefcase, ClipboardList } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { usePathname } from "next/navigation";
+// Componentes ligeros importados directamente
 import MetricsCard from "../../components/dashboard/MetricsCard";
-import WeeklyIncomeChart from "../../components/dashboard/WeeklyIncomeChart";
-import IncomeDistributionChart from "../../components/dashboard/IncomeDistributionChart";
 import RecentWorksTable from "../../components/dashboard/RecentWorksTable";
-import {
-  ContractIcon,
-  QuoteIcon,
-  PaymentIcon,
-  ProjectIcon,
-} from "../../components/ui/icons";
-import { getDashboardData } from "../../services/dashboardService";
-import { DashboardData } from "../../types/dashboard";
-import { useEffect, useState } from "react";
 
-function DashboardContent() {
-  const { user, signOut } = useAuthContext();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
+// Fragmentación de componentes pesados (charts)
+const WeeklyIncomeChart = dynamic(
+  () => import("../../components/dashboard/WeeklyIncomeChart"),
+  {
+    loading: () => (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="h-64 bg-gray-200 animate-pulse rounded"></div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
+const IncomeDistributionChart = dynamic(
+  () => import("../../components/dashboard/IncomeDistributionChart"),
+  {
+    loading: () => (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="h-64 bg-gray-200 animate-pulse rounded"></div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
+export default function DashboardPage() {
+  const { dashboard, loading, error, fetched, fetchData } = useDashboard();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        if (!user) return;
-        const data = await getDashboardData(user.uid);
-        setDashboardData(data);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchDashboardData();
-  }, [user]);
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
+    if (!loading && !fetched) {
+      fetchData();
     }
-  };
+  }, [loading, fetched, fetchData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contracts",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "quotes",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "projects",
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+        },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (pathname === "/dashboard") {
+      fetchData();
+    }
+  }, [pathname]);
 
   if (loading) {
     return (
-      <div className="p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4F46E5]"></div>
-          </div>
-        </div>
-      </div>
+      <ProtectedRoute>
+        <DashboardLayout>
+          <DashboardSkeleton />
+        </DashboardLayout>
+      </ProtectedRoute>
     );
   }
 
-  if (!dashboardData) {
+  if (error || !dashboard) {
     return (
-      <div className="p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center">
-            <p className="text-[#666666]">Error loading dashboard data</p>
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="w-full p-6">
+            <div className="text-center py-8">
+              <p className="text-red-500">
+                {error || "No hay datos de dashboard."}
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
+        </DashboardLayout>
+      </ProtectedRoute>
     );
   }
 
-  return (
-    <div className="p-4 w-full">
-      <div>
-        {/* Header */}
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <MetricsCard
-            title="Contratos Totales"
-            value={dashboardData.metrics.totalContracts}
-            icon={<ContractIcon />}
-            trend={{
-              value: dashboardData.metrics.contractsTrend,
-              isPositive: dashboardData.metrics.contractsIsPositive,
-            }}
-          />
-          <MetricsCard
-            title="Cotizaciones Enviadas"
-            value={dashboardData.metrics.quotesSent}
-            icon={<QuoteIcon />}
-            trend={{
-              value: dashboardData.metrics.quotesTrend,
-              isPositive: dashboardData.metrics.quotesIsPositive,
-            }}
-          />
-          <MetricsCard
-            title="Pagos Recibidos"
-            value={dashboardData.metrics.paymentsReceived}
-            icon={<PaymentIcon />}
-            trend={{
-              value: dashboardData.metrics.paymentsTrend,
-              isPositive: dashboardData.metrics.paymentsIsPositive,
-              lastValue: dashboardData.metrics.paymentsReceivedLastMonth,
-            }}
-          />
-          <MetricsCard
-            title="Proyectos Activos"
-            value={dashboardData.metrics.activeProjects}
-            icon={<ProjectIcon />}
-            trend={{
-              value: dashboardData.metrics.projectsTrend,
-              isPositive: dashboardData.metrics.projectsIsPositive,
-            }}
-          />
-        </div>
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <WeeklyIncomeChart data={dashboardData.weeklyIncome} />
-          <IncomeDistributionChart data={dashboardData.incomeDistribution} />
-        </div>
-        {/* Recent Works Table */}
-        <div className="mb-8">
-          <RecentWorksTable data={dashboardData.recentWorks} />
-        </div>
-      </div>
-    </div>
-  );
-}
+  const { metrics, weeklyIncome, incomeDistribution, recentWorks } = dashboard;
 
-export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <DashboardContent />
+        <Suspense fallback={<DashboardSkeleton />}>
+          <div className="w-full p-6 space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-[#1A1A1A]">Dashboard</h1>
+              <p className="text-[#666666]">
+                Resumen de tu actividad como freelancer
+              </p>
+            </div>
+
+            {/* Métricas principales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricsCard
+                title="Contratos"
+                value={metrics.totalContracts}
+                icon={<FileText size={28} />}
+                trend={{
+                  value: metrics.contractsTrend,
+                  isPositive: metrics.contractsIsPositive,
+                }}
+              />
+              <MetricsCard
+                title="Cotizaciones enviadas"
+                value={metrics.quotesSent}
+                icon={<ClipboardList size={28} />}
+                trend={{
+                  value: metrics.quotesTrend,
+                  isPositive: metrics.quotesIsPositive,
+                }}
+              />
+              <MetricsCard
+                title="Pagos recibidos"
+                value={metrics.paymentsReceived}
+                icon={<DollarSign size={28} />}
+                trend={{
+                  value: metrics.paymentsTrend,
+                  isPositive: metrics.paymentsIsPositive,
+                }}
+              />
+              <MetricsCard
+                title="Proyectos activos"
+                value={metrics.activeProjects}
+                icon={<Briefcase size={28} />}
+                trend={{
+                  value: metrics.projectsTrend,
+                  isPositive: metrics.projectsIsPositive,
+                }}
+              />
+            </div>
+
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <WeeklyIncomeChart data={weeklyIncome} />
+              <IncomeDistributionChart data={incomeDistribution} />
+            </div>
+
+            {/* Tabla de trabajos recientes */}
+            <RecentWorksTable data={recentWorks} />
+          </div>
+        </Suspense>
       </DashboardLayout>
     </ProtectedRoute>
   );

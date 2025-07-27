@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseAdmin } from "../lib/supabase";
 import {
   Project,
   CreateProjectData,
@@ -7,69 +7,6 @@ import {
   UpdateTaskData,
   Contract,
 } from "../types/project";
-
-// Datos simulados de contratos para el ejemplo
-export const mockContracts: Contract[] = [
-  {
-    id: "1",
-    clientName: "TechCorp Solutions",
-    service: "Desarrollo de aplicación web",
-    amount: 15000,
-    deliverables: [
-      "Diseño de interfaz de usuario",
-      "Desarrollo frontend con React",
-      "Desarrollo backend con Node.js",
-      "Base de datos y API",
-      "Testing y documentación",
-    ],
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2024-03-15"),
-  },
-  {
-    id: "2",
-    clientName: "Marketing Digital Pro",
-    service: "Campaña de marketing digital",
-    amount: 8000,
-    deliverables: [
-      "Estrategia de marketing",
-      "Diseño de materiales gráficos",
-      "Gestión de redes sociales",
-      "Análisis de métricas",
-      "Reporte final",
-    ],
-    startDate: new Date("2024-02-01"),
-    endDate: new Date("2024-04-01"),
-  },
-  {
-    id: "3",
-    clientName: "Restaurante El Sabor",
-    service: "Diseño de identidad visual",
-    amount: 5000,
-    deliverables: [
-      "Logo y branding",
-      "Tarjetas de presentación",
-      "Menú digital",
-      "Material promocional",
-      "Guía de marca",
-    ],
-    startDate: new Date("2024-01-20"),
-    endDate: new Date("2024-02-20"),
-  },
-];
-
-// Utilidad para limpiar campos undefined de forma recursiva
-function removeUndefinedFieldsDeep(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedFieldsDeep);
-  } else if (obj && typeof obj === "object") {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, removeUndefinedFieldsDeep(v)])
-    );
-  }
-  return obj;
-}
 
 export const createProject = async (
   userId: string,
@@ -87,6 +24,7 @@ export const createProject = async (
       deliverables: projectData.deliverables,
       amount: projectData.amount,
       tasks: [],
+      contract_id: projectData.contractId,
     };
 
     const { data, error } = await supabase
@@ -109,32 +47,36 @@ export const getUserProjects = async (userId: string): Promise<Project[]> => {
   try {
     const { data, error } = await supabase
       .from("projects")
-      .select("*")
+      .select(
+        "id, name, description, client, status, priority, due_date, deliverables, amount, created_at, contract_id"
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return data.map((project) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      client: project.client,
-      status: project.status,
-      priority: project.priority,
-      dueDate: project.due_date,
-      deliverables: project.deliverables,
-      amount: project.amount,
-      tasks: (project.tasks || []).map((task: any) => ({
-        ...task,
-        // dueDate ya es string, no convertir
-        createdAt: task.createdAt ? new Date(task.createdAt) : undefined,
-        updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
-      })),
-      progress: calculateProgress(project.tasks || []),
-      createdAt: new Date(project.created_at),
-      updatedAt: new Date(project.updated_at),
-    })) as Project[];
+    // Obtener tareas para cada proyecto
+    const projects = await Promise.all(
+      (data || []).map(async (project: any) => {
+        const tasks = await getProjectTasks(project.id);
+        return {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          client: project.client,
+          status: project.status,
+          priority: project.priority,
+          dueDate: project.due_date,
+          deliverables: project.deliverables,
+          amount: project.amount,
+          contractId: project.contract_id,
+          tasks,
+          progress: calculateProgress(tasks),
+          createdAt: new Date(project.created_at),
+        };
+      })
+    );
+    return projects as Project[];
   } catch (error: any) {
     console.error("Error getting user projects:", error);
     throw new Error("Error al obtener los proyectos");
@@ -156,6 +98,8 @@ export const getProject = async (
       throw error;
     }
 
+    // Obtener tareas desde la tabla relacional
+    const tasks = await getProjectTasks(projectId);
     return {
       id: data.id,
       name: data.name,
@@ -165,13 +109,8 @@ export const getProject = async (
       priority: data.priority,
       dueDate: data.due_date,
       deliverables: data.deliverables,
-      tasks: (data.tasks || []).map((task: any) => ({
-        ...task,
-        // dueDate ya es string, no convertir
-        createdAt: task.createdAt ? new Date(task.createdAt) : undefined,
-        updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
-      })),
-      progress: calculateProgress(data.tasks || []),
+      tasks,
+      progress: calculateProgress(tasks),
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     } as Project;
@@ -199,6 +138,7 @@ export const updateProject = async (
       supabaseUpdates.due_date = updates.dueDate;
     if (updates.deliverables !== undefined)
       supabaseUpdates.deliverables = updates.deliverables;
+    // Nota: progress se calcula dinámicamente, no se almacena en la base de datos
 
     const { error } = await supabase
       .from("projects")
@@ -230,109 +170,73 @@ export const deleteProject = async (projectId: string): Promise<void> => {
   }
 };
 
+// NUEVO: Servicio para obtener tareas de un proyecto
+export const getProjectTasks = async (projectId: string): Promise<Task[]> => {
+  const { data, error } = await supabase
+    .from("project_tasks")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((task: any) => ({
+    ...task,
+    dueDate: task.due_date, // mapeo correcto
+    estimatedHours: task.estimated_hours, // mapeo correcto
+    createdAt: new Date(task.created_at),
+    updatedAt: new Date(task.updated_at),
+  }));
+};
+
+// NUEVO: Agregar tarea a la tabla relacional
 export const addTaskToProject = async (
   projectId: string,
   taskData: CreateTaskData
 ): Promise<void> => {
-  try {
-    const newTask: Task = {
-      id: taskData.id || crypto.randomUUID(),
+  console.log("Intentando agregar tarea:", { projectId, taskData });
+  const { data, error } = await supabase.from("project_tasks").insert([
+    {
+      project_id: projectId,
       title: taskData.title,
       description: taskData.description,
       status: "todo",
-      dueDate: taskData.dueDate, // Guardar como string
-      estimatedHours: taskData.estimatedHours,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks")
-      .eq("id", projectId)
-      .single();
-
-    const updatedTasks = [...(project?.tasks || []), newTask];
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ tasks: updatedTasks })
-      .eq("id", projectId);
-
-    if (error) throw error;
-  } catch (error: any) {
-    console.error("Error adding task to project:", error);
-    throw new Error(
-      `Error al agregar la tarea: ${error.message || "Error desconocido"}`
-    );
+      due_date: taskData.dueDate,
+      estimated_hours: taskData.estimatedHours,
+    },
+  ]);
+  if (error) {
+    console.error("Error al agregar tarea:", error);
+    throw error;
   }
+  console.log("Tarea agregada correctamente:", data);
 };
 
+// NUEVO: Actualizar tarea
 export const updateTask = async (
-  projectId: string,
   taskId: string,
   updates: UpdateTaskData
 ): Promise<void> => {
-  try {
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks")
-      .eq("id", projectId)
-      .single();
-
-    const tasks = project?.tasks || [];
-    const taskIndex = tasks.findIndex((task: Task) => task.id === taskId);
-
-    if (taskIndex === -1) {
-      throw new Error("Tarea no encontrada");
-    }
-
-    tasks[taskIndex] = {
-      ...tasks[taskIndex],
+  console.log("Intentando actualizar tarea:", { taskId, updates });
+  const { data, error } = await supabase
+    .from("project_tasks")
+    .update({
       ...updates,
-      updatedAt: new Date(),
-    };
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ tasks })
-      .eq("id", projectId);
-
-    if (error) throw error;
-  } catch (error: any) {
-    console.error("Error updating task:", error);
-    throw new Error(
-      `Error al actualizar la tarea: ${error.message || "Error desconocido"}`
-    );
+      updated_at: new Date(),
+    })
+    .eq("id", taskId);
+  if (error) {
+    console.error("Error al agregar tarea:", error);
+    throw error;
   }
+  console.log("Tarea actualizada correctamente:", data);
 };
 
-export const deleteTask = async (
-  projectId: string,
-  taskId: string
-): Promise<void> => {
-  try {
-    const { data: project } = await supabase
-      .from("projects")
-      .select("tasks")
-      .eq("id", projectId)
-      .single();
-
-    const tasks = project?.tasks || [];
-    const filteredTasks = tasks.filter((task: Task) => task.id !== taskId);
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ tasks: filteredTasks })
-      .eq("id", projectId);
-
-    if (error) throw error;
-  } catch (error: any) {
-    console.error("Error deleting task:", error);
-    throw new Error(
-      `Error al eliminar la tarea: ${error.message || "Error desconocido"}`
-    );
-  }
+// NUEVO: Eliminar tarea
+export const deleteTask = async (taskId: string): Promise<void> => {
+  const { error } = await supabase
+    .from("project_tasks")
+    .delete()
+    .eq("id", taskId);
+  if (error) throw error;
 };
 
 export const getContracts = async (): Promise<Contract[]> => {
@@ -351,12 +255,8 @@ export const getContracts = async (): Promise<Contract[]> => {
       service: contract.service,
       amount: contract.amount,
       deliverables: contract.deliverables,
-      startDate: contract.start_date
-        ? new Date(contract.start_date)
-        : undefined,
-      endDate: contract.delivery_date
-        ? new Date(contract.delivery_date)
-        : undefined,
+      startDate: contract.start_date || undefined,
+      endDate: contract.delivery_date || undefined,
     })) as Contract[];
   } catch (error: any) {
     console.error("Error getting contracts:", error);
@@ -364,15 +264,191 @@ export const getContracts = async (): Promise<Contract[]> => {
   }
 };
 
-export const getContractById = async (
-  contractId: string
-): Promise<Contract | null> => {
-  const contract = mockContracts.find((c) => c.id === contractId);
-  return contract || null;
-};
-
-const calculateProgress = (tasks: Task[]): number => {
+export const calculateProgress = (tasks: Task[]): number => {
   if (tasks.length === 0) return 0;
   const completedTasks = tasks.filter((task) => task.status === "done");
   return Math.round((completedTasks.length / tasks.length) * 100);
 };
+
+export const getUsedContractIds = async (userId: string): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("contract_id")
+      .eq("user_id", userId)
+      .not("contract_id", "is", null);
+
+    if (error) throw error;
+
+    const usedIds = data.map((p) => p.contract_id).filter(Boolean);
+    return usedIds;
+  } catch (error: any) {
+    console.error("Error al obtener contratos ya usados:", error);
+    return [];
+  }
+};
+
+// NUEVO: Obtener proyectos próximos a vencer (próximas 48 horas)
+export interface ProjectDueSoon {
+  id: string;
+  name: string;
+  dueDate: string; // ISO string
+  user: {
+    email: string;
+    name: string;
+  };
+}
+
+export async function getProjectsDueSoon(): Promise<ProjectDueSoon[]> {
+  try {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 horas
+    const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 48 horas
+
+    // CAMBIADO: Usar supabaseAdmin en lugar de supabase
+    const { data: projects, error } = await supabaseAdmin
+      .from("projects")
+      .select(
+        `
+        id,
+        name,
+        due_date,
+        user_id
+      `
+      )
+      .gte("due_date", now.toISOString().split("T")[0])
+      .lte("due_date", dayAfterTomorrow.toISOString().split("T")[0])
+      .in("status", ["pending", "in-progress"]) // Proyectos pendientes O en proceso
+      .order("due_date", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching projects:", error);
+      throw error;
+    }
+
+    console.log("Proyectos encontrados:", projects?.length || 0);
+
+    // Obtener información de usuarios para los proyectos encontrados
+    const userIds = [
+      ...new Set(
+        projects?.map((project) => project.user_id).filter(Boolean) || []
+      ),
+    ];
+
+    console.log("User IDs encontrados:", userIds);
+
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, first_name, last_name, display_name")
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      throw profilesError;
+    }
+
+    console.log("Perfiles encontrados:", profiles?.length || 0);
+
+    // Crear un mapa de usuarios para acceso rápido
+    const userMap = new Map(
+      profiles?.map((profile) => [profile.id, profile]) || []
+    );
+
+    // Transformar los datos al formato esperado
+    const projectsWithUserInfo: ProjectDueSoon[] =
+      projects?.map((project) => {
+        const userId = project.user_id;
+        const user = userMap.get(userId);
+
+        console.log(`Project ${project.id}: userId=${userId}, user=`, user);
+
+        return {
+          id: project.id,
+          name: project.name,
+          dueDate: project.due_date,
+          user: {
+            email: user?.email || "usuario@ejemplo.com",
+            name:
+              user?.display_name ||
+              `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+              user?.email ||
+              "Usuario",
+          },
+        };
+      }) || [];
+
+    console.log("Proyectos con info de usuario:", projectsWithUserInfo);
+
+    return projectsWithUserInfo;
+  } catch (error) {
+    console.error("Error in getProjectsDueSoon:", error);
+    return [];
+  }
+}
+
+// NUEVO: Obtener proyectos próximos a vencer para un usuario específico
+export async function getProjectsDueSoonForUser(
+  userId: string
+): Promise<ProjectDueSoon[]> {
+  try {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: projects, error } = await supabaseAdmin
+      .from("projects")
+      .select(
+        `
+        id,
+        name,
+        due_date,
+        user_id
+      `
+      )
+      .gte("due_date", now.toISOString().split("T")[0])
+      .lte("due_date", tomorrow.toISOString().split("T")[0])
+      .in("status", ["pending", "in-progress"]) // Proyectos pendientes O en proceso
+      .eq("user_id", userId)
+      .order("due_date", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching user projects:", error);
+      throw error;
+    }
+
+    // Obtener información del usuario
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, first_name, last_name, display_name")
+      .eq("id", userId)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+      throw profileError;
+    }
+
+    // Transformar los datos al formato esperado
+    const projectsWithUserInfo: ProjectDueSoon[] =
+      projects?.map((project) => ({
+        id: project.id,
+        name: project.name,
+        dueDate: project.due_date,
+        user: {
+          email: profile?.email || "usuario@ejemplo.com",
+          name:
+            profile?.display_name ||
+            `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+            profile?.email ||
+            "Usuario",
+        },
+      })) || [];
+
+    return projectsWithUserInfo;
+  } catch (error) {
+    console.error("Error in getProjectsDueSoonForUser:", error);
+    return [];
+  }
+}

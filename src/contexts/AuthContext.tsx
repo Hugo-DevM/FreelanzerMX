@@ -4,14 +4,15 @@ import React, { createContext, useContext, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { AuthContextType } from "../types/auth";
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const auth = useAuth();
 
-  // Memoizar el valor del contexto para evitar re-renderizados innecesarios
   const contextValue = useMemo<AuthContextType>(
     () => ({
       user: auth.user,
@@ -19,7 +20,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loading: auth.loading,
       profileLoading: auth.profileLoading,
       error: auth.error,
+      userPlan: auth.userPlan,
       signIn: auth.signIn,
+      signInWithGoogle: auth.signInWithGoogle,
       signUp: auth.signUp,
       signOut: auth.signOut,
       resetPassword: auth.resetPassword,
@@ -32,7 +35,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       auth.loading,
       auth.profileLoading,
       auth.error,
+      auth.userPlan,
       auth.signIn,
+      auth.signInWithGoogle,
       auth.signUp,
       auth.signOut,
       auth.resetPassword,

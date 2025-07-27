@@ -2,11 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { Contract, CreateProjectData } from "../../types/project";
-import { createProject, getContracts } from "../../services/projectService";
+import {
+  createProject,
+  getContracts,
+  getUsedContractIds,
+} from "../../services/projectService";
+import {
+  canCreateProject,
+  getProjectLimit,
+  getUserPlan,
+} from "../../services/userService";
+import { supabase } from "../../lib/supabase";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
+import ErrorModal from "../shared/ErrorModal";
 import { XIcon, FileTextIcon, PlusIcon } from "../ui/icons";
 
 interface CreateProjectModalProps {
@@ -27,8 +38,10 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [selectedContract, setSelectedContract] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
+  const [projectCount, setProjectCount] = useState(0);
+  const [canCreate, setCanCreate] = useState(true);
 
-  // Form data
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -40,14 +53,45 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   useEffect(() => {
     loadContracts();
-  }, []);
+    loadUserPlanInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const loadUserPlanInfo = async () => {
+    try {
+      const plan = await getUserPlan(userId);
+      const canCreateProjects = await canCreateProject(userId);
+
+      // Obtener el número actual de proyectos
+      const { count, error } = await supabase
+        .from("projects")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      setProjectCount(count || 0);
+
+      setUserPlan(plan);
+      setCanCreate(canCreateProjects);
+    } catch (error) {
+      console.error("Error loading user plan info:", error);
+    }
+  };
 
   const loadContracts = async () => {
     try {
-      const userContracts = await getContracts();
-      setContracts(userContracts);
+      const allContracts = await getContracts();
+      const usedIds = await getUsedContractIds(userId);
+
+      const availableContracts = allContracts.filter(
+        (contract) => !usedIds.includes(contract.id)
+      );
+
+      setContracts(availableContracts);
     } catch (err: any) {
       console.error("Error loading contracts:", err);
+      setError("Error al cargar los contratos");
     }
   };
 
@@ -64,23 +108,20 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setSelectedContract(contractId);
     const contract = contracts.find((c) => c.id === contractId);
     if (contract) {
-      let endDate: Date | undefined;
-      if (contract.endDate instanceof Date) {
-        endDate = contract.endDate;
-      } else if (typeof contract.endDate === "string") {
-        endDate = new Date(contract.endDate);
-      } else if ((contract.endDate as any)?.toDate) {
-        endDate = (contract.endDate as any).toDate();
+      let dueDate = "";
+      if (contract.endDate) {
+        if (typeof contract.endDate === "string") {
+          dueDate = contract.endDate;
+        } else if (contract.endDate instanceof Date) {
+          dueDate = contract.endDate.toISOString().split("T")[0];
+        }
       }
       setFormData({
-        name: contract.service,
-        description: `Proyecto basado en contrato con ${contract.clientName}`,
+        name: "",
+        description: contract.service,
         client: contract.clientName,
         priority: "medium",
-        dueDate:
-          endDate && !isNaN(endDate.getTime())
-            ? endDate.toISOString().split("T")[0]
-            : "",
+        dueDate: dueDate,
         amount: contract.amount?.toString() || "",
       });
     }
@@ -92,6 +133,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setError(null);
 
     try {
+      // Verificar si el usuario puede crear más proyectos
+      const canCreate = await canCreateProject(userId);
+      if (!canCreate) {
+        const userPlan = await getUserPlan(userId);
+        const projectLimit = getProjectLimit(userPlan);
+        setError(
+          `Has alcanzado el límite de ${projectLimit} proyectos en tu plan ${userPlan}. Actualiza tu plan para crear más proyectos.`
+        );
+        return;
+      }
+
       const projectData: CreateProjectData = {
         name: formData.name,
         description: formData.description,
@@ -137,13 +189,15 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   const formatDate = (date: Date | string | undefined | null) => {
     if (!date) return "Sin fecha";
-    const d = typeof date === "string" ? new Date(date) : date;
-    if (!(d instanceof Date) || isNaN(d.getTime())) return "Sin fecha";
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(d);
+    if (typeof date === "string") {
+      return date;
+    }
+    if (date instanceof Date) {
+      return `${date.getFullYear()}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+    }
+    return String(date);
   };
 
   const formatCurrency = (amount: number) => {
@@ -167,10 +221,34 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </button>
           </div>
 
+          {/* Información del plan */}
+          {userPlan === "free" && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <span className="text-sm font-medium">
+                  Plan Gratuito: {projectCount}/2 proyectos
+                </span>
+                {!canCreate && (
+                  <span className="text-xs bg-yellow-200 px-2 py-1 rounded">
+                    Límite alcanzado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-yellow-700 mt-1">
+                Actualiza a Premium para proyectos ilimitados
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <button
               onClick={() => setMode("contract")}
-              className="w-full p-4 border-2 border-dashed border-[#9ae600] rounded-lg hover:bg-[#9ae600] hover:bg-opacity-10 transition-colors text-left group"
+              disabled={!canCreate}
+              className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors text-left group ${
+                canCreate
+                  ? "border-[#9ae600] hover:bg-[#9ae600] hover:bg-opacity-10"
+                  : "border-gray-300 bg-gray-50 cursor-not-allowed"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <FileTextIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />
@@ -187,7 +265,12 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
             <button
               onClick={() => setMode("scratch")}
-              className="w-full p-4 border-2 border-dashed border-[#9ae600] rounded-lg hover:bg-[#9ae600] hover:bg-opacity-10 transition-colors text-left group"
+              disabled={!canCreate}
+              className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors text-left group ${
+                canCreate
+                  ? "border-[#9ae600] hover:bg-[#9ae600] hover:bg-opacity-10"
+                  : "border-gray-300 bg-gray-50 cursor-not-allowed"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <PlusIcon className="text-[#9ae600] text-xl group-hover:text-white transition-colors" />
@@ -222,11 +305,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           </button>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
+        {/* Error display removed - now using ErrorModal */}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {mode === "contract" && (
@@ -278,62 +357,8 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         </p>
                         <p>
                           <strong>Fecha fin:</strong>{" "}
-                          {(() => {
-                            const end = contract.endDate;
-                            if (!end) return "Sin fecha";
-                            if (
-                              typeof end === "string" &&
-                              /^\d{4}-\d{2}-\d{2}$/.test(end as string)
-                            ) {
-                              const [y, m, d] = (end as string).split("-");
-                              return `${d}/${m}/${y}`;
-                            }
-                            if (end instanceof Date && !isNaN(end.getTime())) {
-                              const d = end
-                                .getDate()
-                                .toString()
-                                .padStart(2, "0");
-                              const m = (end.getMonth() + 1)
-                                .toString()
-                                .padStart(2, "0");
-                              const y = end.getFullYear();
-                              return `${d}/${m}/${y}`;
-                            }
-                            if (
-                              typeof end === "object" &&
-                              end !== null &&
-                              typeof (end as any).toDate === "function"
-                            ) {
-                              const dObj = (end as any).toDate();
-                              if (
-                                dObj instanceof Date &&
-                                !isNaN(dObj.getTime())
-                              ) {
-                                const d = dObj
-                                  .getDate()
-                                  .toString()
-                                  .padStart(2, "0");
-                                const m = (dObj.getMonth() + 1)
-                                  .toString()
-                                  .padStart(2, "0");
-                                const y = dObj.getFullYear();
-                                return `${d}/${m}/${y}`;
-                              }
-                              return "Sin fecha";
-                            }
-                            return "Sin fecha";
-                          })()}
+                          {formatDate(contract.endDate)}
                         </p>
-                        <div>
-                          <strong>Entregables:</strong>
-                          <ul className="list-disc list-inside mt-1 ml-2">
-                            {(contract.deliverables || []).map(
-                              (deliverable, index) => (
-                                <li key={index}>{deliverable}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
                       </div>
                     );
                   })()}
@@ -420,6 +445,13 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </Button>
           </div>
         </form>
+
+        {/* Error Modal */}
+        <ErrorModal
+          open={!!error}
+          message={error || ""}
+          onClose={() => setError(null)}
+        />
       </Card>
     </div>
   );

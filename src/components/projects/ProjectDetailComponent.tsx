@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Project, Task, CreateTaskData } from "../../types/project";
 import {
@@ -9,18 +9,16 @@ import {
   updateTask,
   deleteTask,
   updateProject,
+  getProjectTasks,
+  calculateProgress,
 } from "../../services/projectService";
+import { supabase } from "../../lib/supabase";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
-import {
-  ArrowLeftIcon,
-  PlusIcon,
-  EditIcon,
-  TrashIcon,
-  CheckIcon,
-} from "../ui/icons";
+import ErrorModal from "../shared/ErrorModal";
+import { ArrowLeftIcon, PlusIcon, TrashIcon, CheckIcon } from "../ui/icons";
 import ConfirmModal from "../ui/ConfirmModal";
 
 interface ProjectDetailComponentProps {
@@ -38,13 +36,14 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [showAddTask, setShowAddTask] = useState(false);
-  const [editingTask, setEditingTask] = useState<string | null>(null);
+  // const [editingTask, setEditingTask] = useState<string | null>(null);
   const [progressAnimated, setProgressAnimated] = useState(0);
   const progressRef = useRef<number>(0);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
-  // Form data for new task
   const [taskForm, setTaskForm] = useState({
     title: "",
     description: "",
@@ -54,27 +53,116 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
 
   useEffect(() => {
     loadProject();
+    loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Suscripción en tiempo real para cambios en el proyecto
+  useEffect(() => {
+    if (!projectId) return;
+    // Suscripción a cambios en el proyecto
+    const projectSubscription = supabase
+      .channel(`project-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "projects",
+          filter: `id=eq.${projectId}`,
+        },
+        async (payload) => {
+          console.log("📡 Cambio detectado en proyecto:", payload);
+          if (payload.new) {
+            try {
+              // Recargar el proyecto completo para obtener los datos más recientes
+              const updatedProject = await getProject(projectId);
+              if (updatedProject) {
+                console.log(
+                  "🔄 Actualizando proyecto con datos frescos:",
+                  updatedProject
+                );
+                setProject(updatedProject);
+              }
+            } catch (error) {
+              console.error("Error recargando proyecto:", error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("🔕 Desuscribiendo de cambios en tiempo real");
+      projectSubscription.unsubscribe();
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`tasks-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_tasks",
+          filter: `project_id=eq.${projectId}`,
+        },
+        async () => {
+          const updatedTasks = await getProjectTasks(projectId);
+          setTasks(updatedTasks);
+
+          // Actualizar solo el progreso del proyecto sin llamar a loadProject
+          setProject((prev) =>
+            prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, [projectId]);
 
   useEffect(() => {
     if (project) {
+      console.log(
+        "🎬 Iniciando animación - Progreso actual:",
+        project.progress
+      );
+
+      // Inicializar el valor de referencia si es la primera vez
+      if (progressRef.current === 0 && project.progress > 0) {
+        progressRef.current = 0;
+      }
+
       // Animar la barra de progreso
       let frame: number;
       const animate = () => {
         if (progressRef.current !== project.progress) {
           const diff = project.progress - progressRef.current;
-          progressRef.current += diff * 0.2; // velocidad de animación
+          progressRef.current += diff * 0.3; // velocidad de animación más rápida
           if (Math.abs(diff) < 0.5) {
             progressRef.current = project.progress;
           } else {
             frame = requestAnimationFrame(animate);
           }
-          setProgressAnimated(Math.round(progressRef.current * 10) / 10);
+          const newProgressAnimated = Math.round(progressRef.current * 10) / 10;
+          console.log(
+            "🎯 Animación - Valor actual:",
+            progressRef.current,
+            "Animado:",
+            newProgressAnimated
+          );
+          setProgressAnimated(newProgressAnimated);
         }
       };
       animate();
       return () => cancelAnimationFrame(frame);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.progress]);
 
   const loadProject = async () => {
@@ -95,6 +183,18 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
+  const loadTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const loadedTasks = await getProjectTasks(projectId);
+      setTasks(loadedTasks);
+    } catch (err: any) {
+      setError(err.message || "Error al cargar las tareas");
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -106,44 +206,32 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     e.preventDefault();
     if (!project) return;
     try {
-      const taskId =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now().toString();
+      const taskId = crypto?.randomUUID?.() || Date.now().toString();
       const taskData: CreateTaskData = {
         id: taskId,
         title: taskForm.title,
         description: taskForm.description || undefined,
-        dueDate: taskForm.dueDate || undefined, // Guardar como string
+        dueDate: taskForm.dueDate || undefined,
         estimatedHours: taskForm.estimatedHours
           ? parseFloat(taskForm.estimatedHours)
           : undefined,
       };
-      const newTask: Task = {
-        id: taskId,
-        ...taskData,
-        status: "todo",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const updatedTasks = [...project.tasks, newTask];
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress = Math.round((doneCount / updatedTasks.length) * 100);
-      // Cambia el estado automáticamente
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
-      }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
+      await addTaskToProject(projectId, taskData);
+      // Optimistic update: agrega la tarea localmente
+      setTasks((prev) => [
+        ...prev,
+        {
+          id: taskId, // aseguramos que siempre es string
+          title: taskData.title,
+          description: taskData.description,
+          status: "todo",
+          dueDate: taskData.dueDate,
+          estimatedHours: taskData.estimatedHours,
+          actualHours: undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
       setTaskForm({
         title: "",
         description: "",
@@ -151,83 +239,43 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
         estimatedHours: "",
       });
       setShowAddTask(false);
-      await addTaskToProject(projectId, taskData);
-      await updateProject(projectId, { status: newStatus, progress });
     } catch (err: any) {
-      console.error("Error adding task:", err);
       setError(err.message || "Error al agregar la tarea");
     }
   };
 
-  const handleUpdateTaskStatus = async (
-    taskId: string,
-    status: Task["status"]
-  ) => {
-    if (!project) return;
-    try {
-      const updatedTasks = project.tasks.map((task) =>
-        task.id === taskId ? { ...task, status, updatedAt: new Date() } : task
-      );
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress = Math.round((doneCount / updatedTasks.length) * 100);
-      // Cambia el estado automáticamente
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
+  const handleUpdateTaskStatus = useCallback(
+    async (taskId: string, status: Task["status"]) => {
+      try {
+        await updateTask(taskId, { status });
+        const updatedTasks = await getProjectTasks(projectId);
+        setTasks(updatedTasks);
+        setProject((prev) =>
+          prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
+        );
+      } catch (error) {
+        setError("Error al actualizar la tarea");
       }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
-      await updateTask(projectId, taskId, { status });
-      await updateProject(projectId, { status: newStatus, progress });
-    } catch (err: any) {
-      console.error("Error updating task:", err);
-      setError(err.message || "Error al actualizar la tarea");
-    }
-  };
+    },
+    [projectId]
+  );
 
   const handleDeleteTask = async (taskId: string) => {
     setDeleteTaskId(taskId);
   };
 
   const confirmDeleteTask = async () => {
-    if (!project || !deleteTaskId) return;
+    if (!deleteTaskId) return;
     setDeleting(true);
     try {
-      const updatedTasks = project.tasks.filter(
-        (task) => task.id !== deleteTaskId
+      await deleteTask(deleteTaskId);
+      const updatedTasks = await getProjectTasks(projectId);
+      setTasks(updatedTasks);
+      setProject((prev) =>
+        prev ? { ...prev, progress: calculateProgress(updatedTasks) } : prev
       );
-      const doneCount = updatedTasks.filter((t) => t.status === "done").length;
-      const progress =
-        updatedTasks.length > 0
-          ? Math.round((doneCount / updatedTasks.length) * 100)
-          : 0;
-      let newStatus = project.status;
-      if (updatedTasks.length > 0 && doneCount === updatedTasks.length) {
-        newStatus = "completed";
-      } else if (updatedTasks.length > 0) {
-        newStatus = "in-progress";
-      } else {
-        newStatus = "pending";
-      }
-      setProject({
-        ...project,
-        tasks: updatedTasks,
-        progress,
-        status: newStatus,
-      });
-      await deleteTask(projectId, deleteTaskId);
-      await updateProject(projectId, { status: newStatus, progress });
       setDeleteTaskId(null);
     } catch (err: any) {
-      console.error("Error deleting task:", err);
       setError(err.message || "Error al eliminar la tarea");
     } finally {
       setDeleting(false);
@@ -318,6 +366,13 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
+  console.log(
+    "🎨 Renderizando componente - Progreso:",
+    project?.progress,
+    "Animado:",
+    progressAnimated
+  );
+
   if (loading) {
     return (
       <div className="p-4">
@@ -331,14 +386,14 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     );
   }
 
-  if (error || !project) {
+  if (!project) {
     return (
       <div className="p-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8">
             <div className="text-red-600 text-6xl mb-4">⚠️</div>
             <h3 className="text-xl font-semibold text-[#1A1A1A] mb-2">
-              {error || "Proyecto no encontrado"}
+              Proyecto no encontrado
             </h3>
             <Button onClick={() => router.push("/projects")} className="mt-4">
               Volver a Proyectos
@@ -408,7 +463,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     Tareas
                   </h3>
                   <p className="text-lg font-semibold text-[#1A1A1A]">
-                    {project.tasks.length} tareas
+                    {tasks.length} tareas
                   </p>
                 </div>
               </div>
@@ -439,14 +494,20 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                   <span className="text-sm font-medium text-[#666666]">
                     Progreso General
                   </span>
-                  <span className="text-sm font-medium text-[#1A1A1A]">
-                    {project.progress}%
+                  <span className="text-sm font-medium text-[#1A1A1A] transition-all duration-300">
+                    {progressAnimated}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div
-                    className="bg-[#9ae600] h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${progressAnimated}%` }}
+                    className="bg-[#9ae600] h-3 rounded-full transition-all duration-300 ease-out shadow-sm"
+                    style={{
+                      width: `${progressAnimated}%`,
+                      boxShadow:
+                        progressAnimated > 0
+                          ? "0 0 8px rgba(154, 230, 0, 0.3)"
+                          : "none",
+                    }}
                   ></div>
                 </div>
               </div>
@@ -457,7 +518,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           <div className="border-b border-gray-200 mb-6">
             <nav className="-mb-px flex space-x-8">
               {[
-                { id: "tasks", label: "Tareas", count: project.tasks.length },
+                { id: "tasks", label: "Tareas", count: tasks.length },
                 { id: "notes", label: "Notas", count: 0 },
                 { id: "files", label: "Archivos", count: 0 },
               ].map((tab) => (
@@ -496,8 +557,16 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                   Agregar Tarea
                 </Button>
               </div>
-
-              {project.tasks.length === 0 ? (
+              {loadingTasks ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse h-20 bg-gray-200 rounded"
+                    />
+                  ))}
+                </div>
+              ) : tasks.length === 0 ? (
                 <Card>
                   <div className="p-8 text-center">
                     <div className="text-[#9ae600] text-4xl mb-4">📝</div>
@@ -518,7 +587,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {project.tasks.map((task) => (
+                  {tasks.map((task) => (
                     <Card key={task.id}>
                       <div className="p-4">
                         <div className="flex items-start justify-between">
@@ -531,10 +600,10 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                                     task.status === "done" ? "todo" : "done"
                                   )
                                 }
-                                className={`p-1 rounded ${
+                                className={`p-1 rounded transition-all duration-200 ${
                                   task.status === "done"
-                                    ? "bg-green-100 text-green-600"
-                                    : "bg-gray-100 text-gray-400"
+                                    ? "bg-green-100 text-green-600 scale-110"
+                                    : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                                 }`}
                               >
                                 <CheckIcon size={16} />
@@ -569,12 +638,6 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setEditingTask(task.id)}
-                              className="p-1 text-[#666666] hover:text-[#1A1A1A]"
-                            >
-                              <EditIcon size={16} />
-                            </button>
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               className="p-1 text-red-500 hover:text-red-700"
@@ -664,6 +727,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     type="date"
                     value={taskForm.dueDate}
                     onChange={handleInputChange}
+                    required
                   />
 
                   <Input
@@ -675,6 +739,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                     placeholder="0"
                     min="0"
                     step="0.5"
+                    required
                   />
                 </div>
 
@@ -702,6 +767,13 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           onConfirm={confirmDeleteTask}
           onCancel={cancelDeleteTask}
           loading={deleting}
+        />
+
+        {/* Error Modal */}
+        <ErrorModal
+          open={!!error}
+          message={error || ""}
+          onClose={() => setError(null)}
         />
       </div>
     </div>

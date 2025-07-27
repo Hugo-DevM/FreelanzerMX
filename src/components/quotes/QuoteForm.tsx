@@ -38,8 +38,8 @@ interface QuoteFormProps {
 
 const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
   const { user, userProfile } = useAuthContext();
-  const [formData, setFormData] = useState<QuoteFormData>(
-    initialData
+  const [formData, setFormData] = useState<QuoteFormData>(() => {
+    const initialFormData = initialData
       ? {
           freelancerName: initialData.freelancer_name || "",
           clientName: initialData.client_name || "",
@@ -48,8 +48,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
           ],
           totalAmount: initialData.total || 0,
           paymentTerms: initialData.payment_terms || "",
-          validity: 10, // Default value since validity is not in QuoteData
-          deliveryTime: 12, // Default value since deliveryTime is not in QuoteData
+          validity: initialData.validity || 10, // Mapear desde initialData
+          deliveryTime: initialData.delivery_time || 12, // Mapear desde initialData
           city: initialData.city || "",
           date:
             initialData.delivery_date || new Date().toISOString().split("T")[0],
@@ -64,8 +64,21 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
           deliveryTime: 12,
           city: "",
           date: new Date().toISOString().split("T")[0],
-        }
-  );
+        };
+
+    // Debug: Log los valores para verificar (solo en desarrollo)
+    if (initialData && process.env.NODE_ENV === "development") {
+      console.log("InitialData recibido:", initialData);
+      console.log("Valores mapeados:", {
+        validity: initialData.validity,
+        delivery_time: initialData.delivery_time,
+        mappedValidity: initialFormData.validity,
+        mappedDeliveryTime: initialFormData.deliveryTime,
+      });
+    }
+
+    return initialFormData;
+  });
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -84,10 +97,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
       setFormData((prev) => ({
         ...prev,
         freelancerName: `${userProfile.first_name} ${userProfile.last_name}`,
-        city:
-          userProfile.address?.city ||
-          userProfile.address?.state ||
-          "Ciudad de México",
+        city: userProfile.address?.city || userProfile.address?.state || "",
       }));
     }
   }, [userProfile]);
@@ -396,7 +406,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
                 label="Vigencia (días naturales)"
                 type="number"
                 placeholder="10"
-                value={formData.validity || ""}
+                value={formData.validity !== undefined ? formData.validity : ""}
                 onChange={(e) => {
                   const value =
                     e.target.value === "" ? 0 : parseInt(e.target.value) || 0;
@@ -411,7 +421,11 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
                 label="Tiempo Estimado de Entrega (días hábiles)"
                 type="number"
                 placeholder="12"
-                value={formData.deliveryTime || ""}
+                value={
+                  formData.deliveryTime !== undefined
+                    ? formData.deliveryTime
+                    : ""
+                }
                 onChange={(e) => {
                   const value =
                     e.target.value === "" ? 0 : parseInt(e.target.value) || 0;

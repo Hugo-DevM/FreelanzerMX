@@ -8,10 +8,14 @@ import {
   getUserProfile,
   userProfileExists,
   UserProfile,
+  getUserPlan,
+  updateUserPlan,
+  updateUserProfile,
 } from "../services/userService";
-import { User as SupabaseUser } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 export const useAuth = () => {
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     loading: true,
@@ -19,6 +23,7 @@ export const useAuth = () => {
   });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
 
   const toCamelCaseProfile = (profile: any): UserProfile | null => {
     if (!profile) return null;
@@ -33,11 +38,34 @@ export const useAuth = () => {
     };
   };
 
+  // Función para extraer datos de Google
+  const extractGoogleData = (userMetadata: any) => {
+    const fullName =
+      userMetadata?.full_name ||
+      userMetadata?.name ||
+      userMetadata?.display_name ||
+      "";
+
+    const [firstName, ...lastNameParts] = fullName.split(" ");
+    const lastName = lastNameParts.join(" ") || "";
+
+    return {
+      display_name: userMetadata?.display_name || fullName,
+      first_name: firstName,
+      last_name: lastName,
+      phone: userMetadata?.phone || "",
+      company: userMetadata?.company || "",
+      business_name: userMetadata?.display_name || fullName,
+    };
+  };
+
   const loadUserProfile = useCallback(async (id: string) => {
     try {
       setProfileLoading(true);
       const profile = await getUserProfile(id);
+      const plan = await getUserPlan(id);
       setUserProfile(toCamelCaseProfile(profile));
+      setUserPlan(plan);
     } catch (error) {
       console.error("Error loading user profile:", error);
     } finally {
@@ -45,8 +73,22 @@ export const useAuth = () => {
     }
   }, []);
 
+  const updatePlan = useCallback(
+    async (plan: "free" | "pro" | "team") => {
+      if (!authState.user) return;
+
+      try {
+        await updateUserPlan(authState.user.uid, plan);
+        setUserPlan(plan);
+      } catch (error) {
+        console.error("Error updating user plan:", error);
+        throw error;
+      }
+    },
+    [authState.user]
+  );
+
   useEffect(() => {
-    // Obtener sesión inicial
     const getInitialSession = async () => {
       const {
         data: { session },
@@ -68,7 +110,6 @@ export const useAuth = () => {
 
     getInitialSession();
 
-    // Escuchar cambios de autenticación
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -81,6 +122,86 @@ export const useAuth = () => {
           createdAt: new Date(session.user.created_at),
         };
         setAuthState({ user, loading: false, error: null });
+
+        // Verificar si el usuario ya tiene un perfil
+        const profileExists = await userProfileExists(session.user.id);
+
+        if (!profileExists) {
+          // Crear perfil automáticamente para usuarios de Google
+          try {
+            const googleData = extractGoogleData(session.user.user_metadata);
+
+            await createUserProfile({
+              id: session.user.id,
+              email: session.user.email || "",
+              display_name: googleData.display_name,
+              first_name: googleData.first_name,
+              last_name: googleData.last_name,
+              phone: googleData.phone,
+              company: googleData.company,
+              business_info: {
+                business_name: googleData.business_name,
+              },
+            });
+          } catch (error) {
+            console.error(
+              "Error creating user profile for Google user:",
+              error
+            );
+          }
+        } else {
+          // Si el perfil existe, verificar si necesita actualización con datos de Google
+          try {
+            const existingProfile = await getUserProfile(session.user.id);
+
+            // Verificar si el usuario se registró con Google
+            const isGoogleUser =
+              session.user.app_metadata?.provider === "google" ||
+              session.user.user_metadata?.provider === "google" ||
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.avatar_url;
+
+            if (existingProfile && isGoogleUser) {
+              const googleData = extractGoogleData(session.user.user_metadata);
+
+              // Solo actualizar si los campos están vacíos (no sobrescribir datos existentes)
+              const needsUpdate =
+                !existingProfile.first_name ||
+                !existingProfile.last_name ||
+                !existingProfile.display_name ||
+                existingProfile.first_name === "EMPTY" ||
+                existingProfile.last_name === "EMPTY" ||
+                existingProfile.display_name === "EMPTY";
+
+              if (needsUpdate) {
+                // Actualizar perfil existente con datos de Google SOLO si están vacíos
+                await updateUserProfile(session.user.id, {
+                  display_name:
+                    existingProfile.display_name || googleData.display_name,
+                  first_name:
+                    existingProfile.first_name || googleData.first_name,
+                  last_name: existingProfile.last_name || googleData.last_name,
+                  phone: googleData.phone || existingProfile.phone || "",
+                  company: googleData.company || existingProfile.company || "",
+                  business_info: {
+                    ...existingProfile.business_info,
+                    business_name:
+                      existingProfile.business_info?.business_name ||
+                      googleData.business_name ||
+                      "",
+                  },
+                });
+              }
+            }
+            // Si no es usuario de Google, NO hacer nada - respetar los datos existentes
+          } catch (error) {
+            console.error(
+              "Error updating existing profile with Google data:",
+              error
+            );
+          }
+        }
+
         loadUserProfile(session.user.id);
       } else {
         setAuthState({ user: null, loading: false, error: null });
@@ -91,12 +212,61 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, [loadUserProfile]);
 
+  useEffect(() => {
+    if (!authState.user || !authState.user.uid) return;
+    // Suscribirse a cambios en el perfil del usuario actual
+    const channel = supabase
+      .channel("profile-realtime-" + authState.user.uid)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${authState.user.uid}`,
+        },
+        () => {
+          // Refrescar el perfil automáticamente si hay cambios
+          loadUserProfile(authState.user!.uid);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authState.user, loadUserProfile]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.status || "unknown",
+        message: getErrorMessage(error.message),
+      };
+      setAuthState((prev) => ({ ...prev, loading: false, error: authError }));
+      throw authError;
+    }
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            prompt: "select_account",
+            access_type: "offline",
+            scope: "email profile",
+          },
+        },
       });
       if (error) throw error;
     } catch (error: any) {
@@ -132,6 +302,8 @@ export const useAuth = () => {
               display_name: userData.displayName,
               first_name: userData.firstName,
               last_name: userData.lastName,
+              phone: userData.phone,
+              company: userData.company,
             },
           },
         });
@@ -139,21 +311,7 @@ export const useAuth = () => {
         if (error) throw error;
 
         if (data.user) {
-          // Crear el perfil del usuario
-          await createUserProfile({
-            id: data.user.id,
-            email: data.user.email || email,
-            display_name: userData.displayName,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            phone: userData.phone,
-            company: userData.company,
-            business_info: {
-              business_name: userData.displayName,
-            },
-          });
-
-          // Actualizar el estado de autenticación inmediatamente
+          // El perfil se creará automáticamente por el trigger de la base de datos
           const user: User = {
             uid: data.user.id,
             email: data.user.email || email,
@@ -164,8 +322,15 @@ export const useAuth = () => {
 
           setAuthState({ user, loading: false, error: null });
 
-          // Cargar el perfil del usuario
-          await loadUserProfile(data.user.id);
+          // Guarda el email para la pantalla de verificación
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pendingVerificationEmail", email);
+          }
+
+          // Redirige a la pantalla de verificación
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+
+          // Si quieres seguir intentando cargar el perfil, puedes dejar el setTimeout
         }
       } catch (error: any) {
         console.error("SignUp error details:", error);
@@ -177,7 +342,7 @@ export const useAuth = () => {
         throw authError;
       }
     },
-    [loadUserProfile]
+    [loadUserProfile, router]
   );
 
   const signOut = useCallback(async () => {
@@ -233,7 +398,10 @@ export const useAuth = () => {
     ...authState,
     userProfile,
     profileLoading,
+    userPlan,
+    updatePlan,
     signIn,
+    signInWithGoogle,
     signUp,
     signOut,
     resetPassword,

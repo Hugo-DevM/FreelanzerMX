@@ -43,6 +43,17 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({
   extraActions,
   showEdit = false,
 }) => {
+  // Debug: Log los datos recibidos (solo en desarrollo)
+  if (process.env.NODE_ENV === "development") {
+    console.log("QuotePreview - Datos recibidos:", {
+      freelancer_name: quoteData.freelancer_name,
+      city: quoteData.city,
+      payment_terms: quoteData.payment_terms,
+      validity: quoteData.validity,
+      delivery_time: quoteData.delivery_time,
+      fullData: quoteData,
+    });
+  }
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 

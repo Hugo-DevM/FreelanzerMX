@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Project } from "../../types/project";
-import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { EyeIcon } from "../ui/icons";
 
@@ -59,6 +58,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         return "Desconocida";
     }
   };
+
+  const progress =
+    typeof project.progress === "number" && !isNaN(project.progress)
+      ? project.progress
+      : 0;
 
   return (
     <div className="bg-white rounded-xl shadow-md border border-[#F1F1F1] p-6 flex flex-col gap-2 transition-shadow hover:shadow-lg">
@@ -117,21 +121,21 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <div className="flex justify-between items-center">
             <span className="text-sm text-[#666666]">Progreso:</span>
             <span className="text-sm font-medium text-[#1A1A1A]">
-              {project.progress}%
+              {progress}%
             </span>
           </div>
 
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-[#9ae600] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${project.progress}%` }}
+              style={{ width: `${progress}%` }}
             ></div>
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-[#666666]">Tareas:</span>
             <span className="text-sm font-medium text-[#1A1A1A]">
-              {project.tasks.length} tareas
+              {project.tasks?.length ?? 0} tareas
             </span>
           </div>
         </div>

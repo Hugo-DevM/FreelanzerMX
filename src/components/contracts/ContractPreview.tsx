@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { ContractFormData } from "./ContractForm";
 import { downloadContractPDF } from "../../services/pdfService";
+import { getFreelancerObligations } from "../../services/obligationsService";
 
 interface ContractPreviewProps {
   contractData: ContractFormData;
   onBack: () => void;
+  onEdit?: (data: ContractFormData) => void; // Agregar prop para editar
   onSave?: () => void;
   saving?: boolean;
 }
@@ -14,6 +16,7 @@ interface ContractPreviewProps {
 const ContractPreview: React.FC<ContractPreviewProps> = ({
   contractData,
   onBack,
+  onEdit, // Agregar prop
   onSave,
   saving,
 }) => {
@@ -29,6 +32,35 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
     city,
   } = contractData;
 
+  const [obligations, setObligations] = useState<string[]>([]);
+  const [loadingObligations, setLoadingObligations] = useState(true);
+
+  useEffect(() => {
+    const loadObligations = async () => {
+      try {
+        setLoadingObligations(true);
+        const serviceObligations = await getFreelancerObligations(service);
+        setObligations(serviceObligations);
+      } catch (error) {
+        console.error("Error loading obligations:", error);
+        // Fallback a obligaciones genéricas
+        setObligations([
+          `Ejecutar el servicio de "${service}" de manera profesional y eficiente.`,
+          "Cumplir con todos los entregables acordados en el contrato.",
+          "Mantener estándares de calidad profesionales en todo el trabajo realizado.",
+          "Entregar el trabajo dentro del plazo establecido.",
+          "Realizar hasta dos rondas de ajustes menores sin costo adicional.",
+        ]);
+      } finally {
+        setLoadingObligations(false);
+      }
+    };
+
+    if (service) {
+      loadObligations();
+    }
+  }, [service]);
+
   const handleDownloadPDF = () => {
     downloadContractPDF(
       contractData,
@@ -38,15 +70,16 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
     );
   };
 
-  const parseLocalDate = (dateString: string | undefined | null) => {
+  // Formatea una fecha YYYY-MM-DD a DD/MM/YYYY
+  const formatDate = (dateString: string | undefined | null) => {
     if (
       !dateString ||
       typeof dateString !== "string" ||
       !dateString.includes("-")
     )
-      return new Date("Invalid");
-    const [year, month, day] = dateString.split("-").map(Number);
-    return new Date(year, month - 1, day);
+      return "-";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
   };
 
   return (
@@ -60,7 +93,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
             Descargar PDF
           </Button>
           <Button
-            onClick={onBack}
+            onClick={() => (onEdit ? onEdit(contractData) : onBack())} // Usar onEdit si está disponible
             size="sm"
             className="bg-blue-600 text-white hover:bg-blue-700"
           >
@@ -95,24 +128,10 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
               Ciudad: <b>{city}</b>
             </div>
             <div>
-              Fecha de inicio:{" "}
-              <b>
-                {parseLocalDate(startDate).toLocaleDateString("es-MX", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </b>
+              Fecha de inicio: <b>{startDate}</b>
             </div>
             <div>
-              Fecha de entrega:{" "}
-              <b>
-                {parseLocalDate(deliveryDate).toLocaleDateString("es-MX", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </b>
+              Fecha de entrega: <b>{deliveryDate}</b>
             </div>
           </div>
 
@@ -125,20 +144,17 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
           </p>
 
           <h2 className="font-bold mb-2">2. Obligaciones del freelancer</h2>
-          <ul className="mb-4 list-disc pl-6">
-            <li>
-              Diseñar y desarrollar una landing page responsiva según los
-              requerimientos previamente acordados.
-            </li>
-            <li>Entregar el trabajo dentro del plazo establecido.</li>
-            <li>
-              Realizar hasta dos rondas de ajustes menores sin costo adicional.
-            </li>
-            <li>
-              Mantener comunicación regular con la cliente sobre el avance del
-              proyecto.
-            </li>
-          </ul>
+          {loadingObligations ? (
+            <div className="mb-4 text-gray-500">Cargando obligaciones...</div>
+          ) : (
+            <ul className="mb-4 list-disc pl-6">
+              {obligations.map((obligation, index) => (
+                <li key={index} className="mb-2">
+                  {obligation}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2 className="font-bold mb-2">3. Obligaciones del cliente</h2>
           <ul className="mb-4 list-disc pl-6">
@@ -163,7 +179,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({
                 : 0
               ).toLocaleString("es-MX")}
             </b>{" "}
-            {currency}, pagaderos de la siguiente manera:
+            {currency || "MXN"}, pagaderos de la siguiente manera:
             <br />
             {paymentMethod}
           </p>

@@ -19,6 +19,7 @@ const MenuItem = React.memo<{
   <li>
     <Link
       href={item.href}
+      prefetch={true}
       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
         isActive
           ? "bg-[#9ae700] text-black shadow-sm"
@@ -255,7 +256,12 @@ const Sidebar: React.FC = () => {
     <div className="w-64 bg-white border-r border-[#E5E7EB] h-screen fixed left-0 top-0 z-10 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-[#E5E7EB] flex items-center ">
-        <img src="/images/Logo.svg" alt="Logo" className="w-10 h-10" />
+        <img
+          src="/images/Logo.svg"
+          alt="Logo"
+          className="w-10 h-10"
+          loading="eager"
+        />
         <h1 className="text-xl font-bold text-[#1A1A1A]">Freelanzer</h1>
       </div>
 
@@ -266,7 +272,7 @@ const Sidebar: React.FC = () => {
             <MenuItem
               key={item.href}
               item={item}
-              isActive={pathname === item.href}
+              isActive={pathname.startsWith(item.href)}
             />
           ))}
         </ul>
