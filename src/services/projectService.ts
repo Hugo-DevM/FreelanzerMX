@@ -180,6 +180,8 @@ export const getProjectTasks = async (projectId: string): Promise<Task[]> => {
   if (error) throw error;
   return (data || []).map((task: any) => ({
     ...task,
+    dueDate: task.due_date, // mapeo correcto
+    estimatedHours: task.estimated_hours, // mapeo correcto
     createdAt: new Date(task.created_at),
     updatedAt: new Date(task.updated_at),
   }));
@@ -190,7 +192,8 @@ export const addTaskToProject = async (
   projectId: string,
   taskData: CreateTaskData
 ): Promise<void> => {
-  const { error } = await supabase.from("project_tasks").insert([
+  console.log("Intentando agregar tarea:", { projectId, taskData });
+  const { data, error } = await supabase.from("project_tasks").insert([
     {
       project_id: projectId,
       title: taskData.title,
@@ -200,7 +203,11 @@ export const addTaskToProject = async (
       estimated_hours: taskData.estimatedHours,
     },
   ]);
-  if (error) throw error;
+  if (error) {
+    console.error("Error al agregar tarea:", error);
+    throw error;
+  }
+  console.log("Tarea agregada correctamente:", data);
 };
 
 // NUEVO: Actualizar tarea
@@ -208,14 +215,19 @@ export const updateTask = async (
   taskId: string,
   updates: UpdateTaskData
 ): Promise<void> => {
-  const { error } = await supabase
+  console.log("Intentando actualizar tarea:", { taskId, updates });
+  const { data, error } = await supabase
     .from("project_tasks")
     .update({
       ...updates,
       updated_at: new Date(),
     })
     .eq("id", taskId);
-  if (error) throw error;
+  if (error) {
+    console.error("Error al agregar tarea:", error);
+    throw error;
+  }
+  console.log("Tarea actualizada correctamente:", data);
 };
 
 // NUEVO: Eliminar tarea
