@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseAdmin } from "../lib/supabase";
 import {
   Project,
   CreateProjectData,
@@ -287,3 +287,168 @@ export const getUsedContractIds = async (userId: string): Promise<string[]> => {
     return [];
   }
 };
+
+// NUEVO: Obtener proyectos próximos a vencer (próximas 48 horas)
+export interface ProjectDueSoon {
+  id: string;
+  name: string;
+  dueDate: string; // ISO string
+  user: {
+    email: string;
+    name: string;
+  };
+}
+
+export async function getProjectsDueSoon(): Promise<ProjectDueSoon[]> {
+  try {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 horas
+    const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 48 horas
+
+    // CAMBIADO: Usar supabaseAdmin en lugar de supabase
+    const { data: projects, error } = await supabaseAdmin
+      .from("projects")
+      .select(
+        `
+        id,
+        name,
+        due_date,
+        user_id
+      `
+      )
+      .gte("due_date", now.toISOString().split("T")[0])
+      .lte("due_date", dayAfterTomorrow.toISOString().split("T")[0])
+      .in("status", ["pending", "in-progress"]) // Proyectos pendientes O en proceso
+      .order("due_date", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching projects:", error);
+      throw error;
+    }
+
+    console.log("Proyectos encontrados:", projects?.length || 0);
+
+    // Obtener información de usuarios para los proyectos encontrados
+    const userIds = [
+      ...new Set(
+        projects?.map((project) => project.user_id).filter(Boolean) || []
+      ),
+    ];
+
+    console.log("User IDs encontrados:", userIds);
+
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, first_name, last_name, display_name")
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      throw profilesError;
+    }
+
+    console.log("Perfiles encontrados:", profiles?.length || 0);
+
+    // Crear un mapa de usuarios para acceso rápido
+    const userMap = new Map(
+      profiles?.map((profile) => [profile.id, profile]) || []
+    );
+
+    // Transformar los datos al formato esperado
+    const projectsWithUserInfo: ProjectDueSoon[] =
+      projects?.map((project) => {
+        const userId = project.user_id;
+        const user = userMap.get(userId);
+
+        console.log(`Project ${project.id}: userId=${userId}, user=`, user);
+
+        return {
+          id: project.id,
+          name: project.name,
+          dueDate: project.due_date,
+          user: {
+            email: user?.email || "usuario@ejemplo.com",
+            name:
+              user?.display_name ||
+              `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+              user?.email ||
+              "Usuario",
+          },
+        };
+      }) || [];
+
+    console.log("Proyectos con info de usuario:", projectsWithUserInfo);
+
+    return projectsWithUserInfo;
+  } catch (error) {
+    console.error("Error in getProjectsDueSoon:", error);
+    return [];
+  }
+}
+
+// NUEVO: Obtener proyectos próximos a vencer para un usuario específico
+export async function getProjectsDueSoonForUser(
+  userId: string
+): Promise<ProjectDueSoon[]> {
+  try {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: projects, error } = await supabaseAdmin
+      .from("projects")
+      .select(
+        `
+        id,
+        name,
+        due_date,
+        user_id
+      `
+      )
+      .gte("due_date", now.toISOString().split("T")[0])
+      .lte("due_date", tomorrow.toISOString().split("T")[0])
+      .in("status", ["pending", "in-progress"]) // Proyectos pendientes O en proceso
+      .eq("user_id", userId)
+      .order("due_date", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching user projects:", error);
+      throw error;
+    }
+
+    // Obtener información del usuario
+    // CAMBIADO: Usar supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, first_name, last_name, display_name")
+      .eq("id", userId)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+      throw profileError;
+    }
+
+    // Transformar los datos al formato esperado
+    const projectsWithUserInfo: ProjectDueSoon[] =
+      projects?.map((project) => ({
+        id: project.id,
+        name: project.name,
+        dueDate: project.due_date,
+        user: {
+          email: profile?.email || "usuario@ejemplo.com",
+          name:
+            profile?.display_name ||
+            `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+            profile?.email ||
+            "Usuario",
+        },
+      })) || [];
+
+    return projectsWithUserInfo;
+  } catch (error) {
+    console.error("Error in getProjectsDueSoonForUser:", error);
+    return [];
+  }
+}
