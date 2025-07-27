@@ -17,7 +17,7 @@ import ErrorModal from "../shared/ErrorModal";
 import { ContractFromQuoteModal } from "./ContractForm";
 import ContractPreview from "./ContractPreview";
 import { supabase } from "../../lib/supabase";
-import { Card } from "../ui";
+import Card from "../ui/Card";
 import ContractForm from "./ContractForm";
 
 const parseLocalDate = (dateString: string) => {
@@ -86,7 +86,7 @@ const ContractsComponent: React.FC = () => {
       );
       setAcceptedQuotes(filteredQuotes);
       console.log("=== FIN loadAcceptedQuotes ===");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error loading accepted quotes:", error);
       setComponentError("Error al cargar las cotizaciones aceptadas");
@@ -170,7 +170,7 @@ const ContractsComponent: React.FC = () => {
           refreshData();
           loadAcceptedQuotes(); // Recargar las cotizaciones para actualizar la lista
         }, 1200);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         console.error("Error al guardar contrato:", e);
         setSaveError(e.message || "Error al guardar el contrato");
@@ -185,9 +185,9 @@ const ContractsComponent: React.FC = () => {
           contractData={previewData}
           onBack={() => setShowPreview(false)}
           onEdit={(data) => {
-            setPreviewData(data);    // Actualiza los datos
-            setShowPreview(false);   // Cierra la vista previa
-            setShowForm(true);       // MUESTRA el formulario de nuevo
+            setPreviewData(data); // Actualiza los datos
+            setShowPreview(false); // Cierra la vista previa
+            setShowForm(true); // MUESTRA el formulario de nuevo
           }}
           onSave={handleSaveContract}
           saving={saving}
@@ -233,7 +233,8 @@ const ContractsComponent: React.FC = () => {
         {showForm ? (
           <ContractForm
             initialData={
-              previewData || (selectedQuote
+              previewData ||
+              (selectedQuote
                 ? {
                     freelancerName: selectedQuote.freelancer_name,
                     clientName: selectedQuote.client_name,

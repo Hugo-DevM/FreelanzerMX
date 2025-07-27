@@ -3,16 +3,16 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import Logo from "../components/ui/Logo";
 import {
-  Button,
-  Card,
-  Logo,
   ArrowRightIcon,
   ContractIcon,
   PaymentIcon,
   ProjectIcon,
   UserIcon,
-} from "../components/ui";
+} from "../components/ui/icons";
 
 const features = [
   {

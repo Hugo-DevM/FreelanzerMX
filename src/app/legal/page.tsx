@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button, Logo } from "@/components/ui";
+import Button from "../../components/ui/Button";
+import Logo from "../../components/ui/Logo";
 
 export default function LegalPage() {
   const router = useRouter();

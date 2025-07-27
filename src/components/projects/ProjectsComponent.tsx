@@ -14,7 +14,7 @@ import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
 import ErrorModal from "../shared/ErrorModal";
 import { PlusIcon } from "../ui/icons";
-import { Card } from "../ui";
+import Card from "../ui/Card";
 import { ProjectListSkeleton } from "../ui/SkeletonLoader";
 import { supabase } from "../../lib/supabase";
 
