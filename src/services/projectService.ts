@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from "../lib/supabase";
+import { supabase, getSupabaseAdmin } from "../lib/supabase";
 import {
   Project,
   CreateProjectData,
@@ -305,8 +305,8 @@ export async function getProjectsDueSoon(): Promise<ProjectDueSoon[]> {
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 horas
     const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 48 horas
 
-    // CAMBIADO: Usar supabaseAdmin en lugar de supabase
-    const { data: projects, error } = await supabaseAdmin
+    // CAMBIADO: Usar getSupabaseAdmin() en lugar de supabase
+    const { data: projects, error } = await getSupabaseAdmin()
       .from("projects")
       .select(
         `
@@ -337,8 +337,8 @@ export async function getProjectsDueSoon(): Promise<ProjectDueSoon[]> {
 
     console.log("User IDs encontrados:", userIds);
 
-    // CAMBIADO: Usar supabaseAdmin
-    const { data: profiles, error: profilesError } = await supabaseAdmin
+    // CAMBIADO: Usar getSupabaseAdmin()
+    const { data: profiles, error: profilesError } = await getSupabaseAdmin()
       .from("profiles")
       .select("id, email, first_name, last_name, display_name")
       .in("id", userIds);
@@ -395,8 +395,8 @@ export async function getProjectsDueSoonForUser(
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    // CAMBIADO: Usar supabaseAdmin
-    const { data: projects, error } = await supabaseAdmin
+    // CAMBIADO: Usar getSupabaseAdmin()
+    const { data: projects, error } = await getSupabaseAdmin()
       .from("projects")
       .select(
         `
@@ -418,8 +418,8 @@ export async function getProjectsDueSoonForUser(
     }
 
     // Obtener información del usuario
-    // CAMBIADO: Usar supabaseAdmin
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // CAMBIADO: Usar getSupabaseAdmin()
+    const { data: profile, error: profileError } = await getSupabaseAdmin()
       .from("profiles")
       .select("id, email, first_name, last_name, display_name")
       .eq("id", userId)

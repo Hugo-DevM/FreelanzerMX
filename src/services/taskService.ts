@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../lib/supabase";
+import { getSupabaseAdmin } from "../lib/supabase";
 
 export interface Task {
   id: string;
@@ -35,7 +35,7 @@ export async function getTasksDueSoon(): Promise<Task[]> {
     const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 48 horas
 
     // Consultar tareas que vencen en las próximas 48 horas
-    const { data: tasks, error } = (await supabaseAdmin
+    const { data: tasks, error } = (await getSupabaseAdmin()
       .from("project_tasks")
       .select(
         `
@@ -71,7 +71,7 @@ export async function getTasksDueSoon(): Promise<Task[]> {
 
     console.log("User IDs encontrados:", userIds);
 
-    const { data: profiles, error: profilesError } = (await supabaseAdmin
+    const { data: profiles, error: profilesError } = (await getSupabaseAdmin()
       .from("profiles")
       .select("id, email, first_name, last_name, display_name")
       .in("id", userIds)) as { data: UserProfile[] | null; error: any };
@@ -127,7 +127,7 @@ export async function getTasksDueSoonForUser(userId: string): Promise<Task[]> {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const { data: tasks, error } = (await supabaseAdmin
+    const { data: tasks, error } = (await getSupabaseAdmin()
       .from("project_tasks")
       .select(
         `
@@ -154,7 +154,7 @@ export async function getTasksDueSoonForUser(userId: string): Promise<Task[]> {
     }
 
     // Obtener información del usuario
-    const { data: profile, error: profileError } = (await supabaseAdmin
+    const { data: profile, error: profileError } = (await getSupabaseAdmin()
       .from("profiles")
       .select("id, email, first_name, last_name, display_name")
       .eq("id", userId)
