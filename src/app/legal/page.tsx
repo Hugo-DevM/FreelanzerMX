@@ -73,69 +73,139 @@ export default function LegalPage() {
             <div className="prose prose-lg max-w-none text-[#1A1A1A] space-y-6">
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  1. Información General
+                  1. Aceptación de los Términos
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Freelanzer es una plataforma SaaS desarrollada para
-                  freelancers en Latinoamérica. Este aviso legal regula el uso
-                  de la plataforma y establece los términos y condiciones que
-                  rigen la relación entre los usuarios y Freelanzer.
+                  Al acceder y utilizar la plataforma Freelanzer, aceptas estar
+                  sujeto a estos Términos de Servicio. Si no estás de acuerdo
+                  con alguna parte de estos términos, no debes utilizar nuestro
+                  servicio.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  2. Propiedad Intelectual
+                  2. Descripción del Servicio
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Todos los derechos de propiedad intelectual sobre la
-                  plataforma Freelanzer, incluyendo pero no limitado a su
-                  diseño, funcionalidades, código fuente y contenido, son
-                  propiedad exclusiva de Freelanzer o sus licenciantes.
+                  Freelanzer es una plataforma SaaS diseñada para freelancers en
+                  Latinoamérica que ofrece herramientas para gestión de
+                  proyectos, contratos, cotizaciones, seguimiento de pagos y
+                  administración financiera.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  3. Uso de la Plataforma
+                  3. Registro y Cuenta de Usuario
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Los usuarios se comprometen a utilizar la plataforma de manera
-                  responsable y conforme a la legislación aplicable. Queda
-                  prohibido el uso de la plataforma para actividades ilegales o
-                  que puedan dañar a terceros.
+                  Para utilizar nuestros servicios, debes crear una cuenta
+                  proporcionando información precisa y completa. Eres
+                  responsable de mantener la confidencialidad de tu contraseña y
+                  de todas las actividades que ocurran bajo tu cuenta.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  4. Limitación de Responsabilidad
+                  4. Uso Aceptable
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Freelanzer no se hace responsable por los daños directos o
-                  indirectos que puedan derivarse del uso de la plataforma,
-                  incluyendo pérdida de datos, interrupciones del servicio o
-                  errores en la información proporcionada.
+                  Te comprometes a utilizar la plataforma únicamente para fines
+                  legales y de acuerdo con estos términos. Queda prohibido el
+                  uso de la plataforma para actividades fraudulentas, spam, o
+                  cualquier actividad que pueda dañar a otros usuarios.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  5. Modificaciones
+                  5. Propiedad Intelectual
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Freelanzer se reserva el derecho de modificar este aviso legal
-                  en cualquier momento. Los cambios serán notificados a los
-                  usuarios a través de la plataforma o por correo electrónico.
+                  La plataforma Freelanzer y todo su contenido, incluyendo pero
+                  no limitado a software, diseño, texto, gráficos y
+                  funcionalidades, son propiedad de Freelanzer y están
+                  protegidos por leyes de propiedad intelectual.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  6. Ley Aplicable
+                  6. Privacidad y Datos
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Este aviso legal se rige por las leyes de México. Cualquier
+                  Tu privacidad es importante para nosotros. El uso de tu
+                  información personal está sujeto a nuestra Política de
+                  Privacidad, que forma parte de estos términos.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  7. Pagos y Facturación
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Los servicios premium requieren el pago de una tarifa. Todos
+                  los pagos son no reembolsables, excepto donde la ley lo
+                  requiera. Nos reservamos el derecho de modificar nuestros
+                  precios con previo aviso.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  8. Disponibilidad del Servicio
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Nos esforzamos por mantener la plataforma disponible 24/7,
+                  pero no garantizamos la disponibilidad ininterrumpida. Podemos
+                  realizar mantenimiento programado con previo aviso.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  9. Limitación de Responsabilidad
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  En ningún caso Freelanzer será responsable por daños
+                  indirectos, incidentales, especiales o consecuentes que
+                  resulten del uso o la imposibilidad de usar nuestros
+                  servicios.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  10. Terminación
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Podemos terminar o suspender tu cuenta en cualquier momento
+                  por violación de estos términos. También puedes cancelar tu
+                  cuenta en cualquier momento a través de la configuración de tu
+                  perfil.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  11. Modificaciones
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Nos reservamos el derecho de modificar estos términos en
+                  cualquier momento. Los cambios serán notificados a través de
+                  la plataforma o por correo electrónico.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  12. Ley Aplicable
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Estos términos se rigen por las leyes de México. Cualquier
                   disputa será resuelta en los tribunales competentes de la
                   Ciudad de México.
                 </p>
@@ -143,12 +213,21 @@ export default function LegalPage() {
 
               <section>
                 <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
-                  7. Contacto
+                  13. Contacto
                 </h2>
                 <p className="text-[#6B7280] leading-relaxed">
-                  Para cualquier consulta relacionada con este aviso legal,
-                  puedes contactarnos a través de nuestro correo electrónico:
-                  legal@freelanzer.com
+                  Si tienes preguntas sobre estos términos, puedes contactarnos
+                  en: legal@freelanzer.mx
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold text-[#0E0E2C] mb-4">
+                  14. Fecha de Vigencia
+                </h2>
+                <p className="text-[#6B7280] leading-relaxed">
+                  Estos términos entran en vigor el 1 de agosto de 2025 y
+                  permanecen vigentes hasta que sean modificados o terminados.
                 </p>
               </section>
             </div>
