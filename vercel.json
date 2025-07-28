@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/send-task-notifications",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/send-project-notifications",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
