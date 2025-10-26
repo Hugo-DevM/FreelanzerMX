@@ -256,7 +256,7 @@ const SignupForm: React.FC = () => {
                 helperText="Solo minúsculas, números, punto y guion bajo. Sin espacios."
                 required
               />
-              
+
               {/* Indicador de disponibilidad del nombre de usuario */}
               {formData.displayName.length >= 3 && (
                 <div className="flex items-center space-x-2">
@@ -292,7 +292,7 @@ const SignupForm: React.FC = () => {
                 error={formErrors.email}
                 required
               />
-              
+
               {/* Indicador de disponibilidad del email */}
               {/\S+@\S+\.\S+/.test(formData.email) && (
                 <div className="flex items-center space-x-2">
@@ -359,15 +359,15 @@ const SignupForm: React.FC = () => {
                 error={formErrors.password}
                 required
               />
-              
+
               {/* Indicador de fortaleza de contraseña */}
               {formData.password && (
-                <PasswordStrengthIndicator 
-                  validation={passwordValidation} 
+                <PasswordStrengthIndicator
+                  validation={passwordValidation}
                   showDetails={true}
                 />
               )}
-              
+
               {/* Lista de requisitos */}
               <div className="text-xs text-gray-600 space-y-1">
                 <p className="font-medium">Requisitos de contraseña:</p>
@@ -432,7 +432,7 @@ const SignupForm: React.FC = () => {
               <GoogleButton
                 onClick={handleGoogleSignIn}
                 loading={loading}
-                disabled={loading}
+                disabled={!loading}
               >
                 Continuar con Google
               </GoogleButton>
