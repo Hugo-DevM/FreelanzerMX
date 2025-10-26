@@ -44,7 +44,7 @@ export default function ProfileComponent() {
     bio: "",
     address: {
       street: "",
-      city: "",
+      city: "" as string | null,
       state: "",
       zip_code: "",
       country: "",
@@ -384,7 +384,7 @@ export default function ProfileComponent() {
         company: formData.company,
         website: formData.website,
         bio: formData.bio,
-        address: formData.address,
+        address: { ...formData.address, city: formData.address.city || "" },
         business_info: formData.business_info,
         photo_url, // actualiza la foto si cambió
       });
@@ -728,7 +728,7 @@ export default function ProfileComponent() {
                 {/* Ciudad */}
                 <CiudadCombobox
                   label="Ciudad"
-                  value={formData.address.city}
+                  value={formData.address.city || ""}
                   onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
