@@ -14,7 +14,12 @@ const rubik = Rubik({
 export const metadata: Metadata = {
   title: "Freelanzer | Plataforma para freelancers en LATAM",
   description:
-    "Genera cotizaciones, facturas y lleva control de tus ingresos como freelancer.",
+    "Genera cotizaciones, Contratos, Proyectos y lleva control de tus ingresos como freelancer.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
