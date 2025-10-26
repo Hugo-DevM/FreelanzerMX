@@ -732,7 +732,7 @@ export default function ProfileComponent() {
                   onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      address: { ...prev.address, city: value },
+                      address: { ...prev.address, city: value ?? "" },
                     }))
                   }
                 />

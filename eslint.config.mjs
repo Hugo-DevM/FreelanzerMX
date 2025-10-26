@@ -10,35 +10,35 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
+// Importa los plugins directamente
+const tsParser = await import("@typescript-eslint/parser");
+const tsPlugin = await import("@typescript-eslint/eslint-plugin");
+
 const eslintConfig = [
-  // Extiende las reglas básicas de Next.js
   ...compat.extends("next/core-web-vitals"),
 
   {
     files: ["**/*.ts", "**/*.tsx"],
 
     languageOptions: {
-      parser: await import("@typescript-eslint/parser"),
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: "latest",
         sourceType: "module",
-        ecmaFeatures: {
-          jsx: true,
-        },
+        ecmaFeatures: { jsx: true },
       },
     },
 
     plugins: {
-      ts: await import("@typescript-eslint/eslint-plugin"),
+      "@typescript-eslint": tsPlugin,
     },
 
     rules: {
       "no-unused-vars": "warn",
       "react-hooks/exhaustive-deps": "warn",
       "@next/next/no-img-element": "warn",
-
-      "ts/no-unused-vars": "warn",
-      // "ts/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
+      // "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 ];

@@ -526,7 +526,7 @@ const UserProfileComponent: React.FC = () => {
                   onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      address: { ...prev.address, city: value },
+                      address: { ...prev.address, city: value ?? "" },
                     }))
                   }
                 />

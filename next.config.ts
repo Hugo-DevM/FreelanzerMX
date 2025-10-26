@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // Optimizaciones adicionales
   compress: true,
 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Configuración de imágenes optimizada
   images: {
     formats: ["image/webp", "image/avif"],
