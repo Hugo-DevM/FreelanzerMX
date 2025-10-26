@@ -120,7 +120,7 @@ const UserProfileComponent: React.FC = () => {
     async function fetchSignedUrl() {
       if (profileImage && !profileImage.startsWith("data:")) {
         let path = profileImage;
-        const publicPrefix = process.env.NEXT_PUBLIC_SUPABASE_PREFIX;
+        const publicPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
         if (profileImage.startsWith(publicPrefix!)) {
           path = profileImage.replace(publicPrefix!, "");
         }
@@ -347,8 +347,8 @@ const UserProfileComponent: React.FC = () => {
                       profileImage && profileImage.startsWith("data:")
                         ? profileImage
                         : signedProfileImageUrl ||
-                          highResPhoto ||
-                          "/images/Logo.svg"
+                        highResPhoto ||
+                        "/images/Logo.svg"
                     }
                     alt="Foto de perfil"
                     className="w-80 h-80 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-[#9ae700] transition-transform duration-200 hover:scale-105"

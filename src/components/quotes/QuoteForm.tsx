@@ -34,37 +34,38 @@ interface QuoteFormData {
 interface QuoteFormProps {
   initialData?: Partial<QuoteData>;
   onCancel?: () => void;
+  onQuoteCreated?: () => void;
 }
 
-const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
+const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCreated }) => {
   const { user, userProfile } = useAuthContext();
   const [formData, setFormData] = useState<QuoteFormData>(() => {
     const initialFormData = initialData
       ? {
-          freelancerName: initialData.freelancer_name || "",
-          clientName: initialData.client_name || "",
-          services: initialData.services || [
-            { id: "1", description: "", price: 0 },
-          ],
-          totalAmount: initialData.total || 0,
-          paymentTerms: initialData.payment_terms || "",
-          validity: initialData.validity || 10, // Mapear desde initialData
-          deliveryTime: initialData.delivery_time || 12, // Mapear desde initialData
-          city: initialData.city || "",
-          date:
-            initialData.delivery_date || new Date().toISOString().split("T")[0],
-        }
+        freelancerName: initialData.freelancer_name || "",
+        clientName: initialData.client_name || "",
+        services: initialData.services || [
+          { id: "1", description: "", price: 0 },
+        ],
+        totalAmount: initialData.total || 0,
+        paymentTerms: initialData.payment_terms || "",
+        validity: initialData.validity || 10, // Mapear desde initialData
+        deliveryTime: initialData.delivery_time || 12, // Mapear desde initialData
+        city: initialData.city || "",
+        date:
+          initialData.delivery_date || new Date().toISOString().split("T")[0],
+      }
       : {
-          freelancerName: "",
-          clientName: "",
-          services: [{ id: "1", description: "", price: 0 }],
-          totalAmount: 0,
-          paymentTerms: "",
-          validity: 10,
-          deliveryTime: 12,
-          city: "",
-          date: new Date().toISOString().split("T")[0],
-        };
+        freelancerName: "",
+        clientName: "",
+        services: [{ id: "1", description: "", price: 0 }],
+        totalAmount: 0,
+        paymentTerms: "",
+        validity: 10,
+        deliveryTime: 12,
+        city: "",
+        date: new Date().toISOString().split("T")[0],
+      };
 
     // Debug: Log los valores para verificar (solo en desarrollo)
     if (initialData && process.env.NODE_ENV === "development") {
@@ -138,6 +139,14 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
+    const hasValidService = formData.services.some(
+      (s) => s.description.trim() !== "" && s.price > 0
+    );
+
+    if (!hasValidService) {
+      alert("Debes agregar al menos un servicio válido con precio.");
+      return;
+    }
 
     try {
       if (!user) {
@@ -198,13 +207,32 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
         };
         const quoteId = await createQuote(quoteData);
         setSavedQuoteId(quoteId);
+        setFormData({
+          freelancerName: `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`,
+          clientName: "",
+          services: [{ id: "1", description: "", price: 0 }],
+          totalAmount: 0,
+          paymentTerms: "",
+          validity: 10,
+          deliveryTime: 12,
+          city: userProfile?.address?.city || "",
+          date: new Date().toISOString().split("T")[0],
+        });
+
+
       }
 
+      if (typeof onQuoteCreated === "function") {
+        console.log("📡 Ejecutando callback onQuoteCreated...");
+        await Promise.resolve(onQuoteCreated());
+      }
+      console.log("🎯 Mostrando vista previa...");
       setShowPreview(true);
     } catch (error) {
       console.error("Error creating/updating quote:", error);
       alert("Error al guardar la cotización. Por favor, inténtalo de nuevo.");
     } finally {
+      console.log("🟢 Terminando flujo, desactivando loading...");
       setIsGenerating(false);
     }
   };
@@ -213,9 +241,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
     alert("Funcionalidad de generación de PDF en desarrollo");
   };
 
-  if (showPreview) {
+  if (showPreview && savedQuoteId) {
     return (
       <QuotePreview
+        key={savedQuoteId}
         quoteData={{
           id: savedQuoteId || "",
           status: initialData ? initialData.status || "draft" : "draft",
@@ -242,7 +271,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
           validity: formData.validity, // <-- Añadido
           delivery_time: formData.deliveryTime, // <-- Añadido
         }}
-        onBack={() => {}}
+        onBack={() => { }}
         onGeneratePDF={handleGeneratePDF}
         showEdit={true}
       />
@@ -457,8 +486,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel }) => {
                 ? "Guardando..."
                 : "Guardando..."
               : initialData
-              ? "Guardar Cambios"
-              : "Guardar y Generar Cotización"}
+                ? "Guardar Cambios"
+                : "Guardar y Generar Cotización"}
           </Button>
         </div>
       </form>

@@ -219,9 +219,9 @@ export default function ProfileComponent() {
     async function fetchSignedUrl() {
       if (profileImage && !profileImage.startsWith("data:")) {
         let path = profileImage;
-        const publicPrefix = process.env.NEXT_PUBLIC_SUPABASE_PREFIX;
-        if (profileImage.startsWith(publicPrefix!)) {
-          path = profileImage.replace(publicPrefix!, "");
+        const publicPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-pictures/`;
+        if (profileImage.startsWith(publicPrefix)) {
+          path = profileImage.replace(publicPrefix, "");
         }
         // Intenta obtener la signed URL de localStorage
         const cacheKey = `signedProfileImageUrl:${path}`;
@@ -466,11 +466,10 @@ export default function ProfileComponent() {
         {/* Mensajes de estado */}
         {message && (
           <div
-            className={`p-4 rounded-lg mb-4 ${
-              message.type === "success"
-                ? "bg-green-100 text-green-800 border border-green-200"
-                : "bg-red-100 text-red-800 border border-red-200"
-            }`}
+            className={`p-4 rounded-lg mb-4 ${message.type === "success"
+              ? "bg-green-100 text-green-800 border border-green-200"
+              : "bg-red-100 text-red-800 border border-red-200"
+              }`}
           >
             {message.text}
           </div>

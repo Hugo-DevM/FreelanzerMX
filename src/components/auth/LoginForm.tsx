@@ -57,13 +57,13 @@ const LoginForm: React.FC = () => {
     try {
       await signIn(formData.email, formData.password);
       router.push("/dashboard");
-    } catch (error) {}
+    } catch (error) { }
   };
 
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle();
-    } catch (error) {}
+    } catch (error) { }
   };
 
   return (
@@ -151,7 +151,7 @@ const LoginForm: React.FC = () => {
               <GoogleButton
                 onClick={handleGoogleSignIn}
                 loading={loading}
-                disabled={loading}
+                disabled={!loading}
               />
             </div>
           </div>

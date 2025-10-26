@@ -56,17 +56,29 @@ export interface QuoteWithId extends QuoteData {
   id: string;
 }
 
-export const createQuote = async (
-  quoteData: CreateQuoteData
-): Promise<string> => {
+export const createQuote = async (quoteData: CreateQuoteData): Promise<string> => {
   try {
     const { data, error } = await supabase
       .from("quotes")
       .insert([quoteData])
       .select("id")
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+
+    if (!data?.id) {
+      console.warn("⚠️ No se devolvió ID, obteniendo último registro manualmente...");
+      const { data: last, error: lastError } = await supabase
+        .from("quotes")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (lastError) throw lastError;
+      return last.id;
+    }
+
+    console.log("✅ Cotización creada con ID:", data.id);
     return data.id;
   } catch (error: any) {
     console.error("Error creating quote:", error);
@@ -75,6 +87,7 @@ export const createQuote = async (
     );
   }
 };
+
 
 export const getUserQuotes = async (
   userId: string,
@@ -157,8 +170,7 @@ export const updateQuote = async (
   } catch (error: any) {
     console.error("Error updating quote:", error);
     throw new Error(
-      `Error al actualizar la cotización: ${
-        error.message || "Error desconocido"
+      `Error al actualizar la cotización: ${error.message || "Error desconocido"
       }`
     );
   }

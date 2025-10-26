@@ -6,25 +6,34 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Validar que las variables de entorno estén definidas
 if (!supabaseUrl) {
+  console.log('No es valida url')
   throw new Error("NEXT_PUBLIC_SUPABASE_URL is required.");
 }
 
 if (!supabaseAnonKey) {
+  console.log('No es valida el annon key')
   throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is required.");
 }
 
 // Cliente para el frontend (con RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: { schema: "public" },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
 // Cliente para el servidor (bypass RLS) - solo se crea si estamos en el servidor
 export const supabaseAdmin =
   typeof window === "undefined" && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      })
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
     : null;
 
 // Función helper para obtener supabaseAdmin (solo en servidor)
