@@ -38,7 +38,7 @@ const ciudades = [
 
 interface CiudadComboboxProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string | null) => void
   label?: string;
 }
 
@@ -53,8 +53,8 @@ export default function CiudadCombobox({
     query === ""
       ? ciudades
       : ciudades.filter((ciudad) =>
-          ciudad.toLowerCase().includes(query.toLowerCase())
-        );
+        ciudad.toLowerCase().includes(query.toLowerCase())
+      );
 
   return (
     <div className="w-full">
@@ -91,10 +91,9 @@ export default function CiudadCombobox({
                   <Combobox.Option
                     key={ciudad}
                     className={({ active }) =>
-                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                        active
-                          ? "bg-[#9ae600]/20 text-[#0E0E2C]"
-                          : "text-gray-900"
+                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active
+                        ? "bg-[#9ae600]/20 text-[#0E0E2C]"
+                        : "text-gray-900"
                       }`
                     }
                     value={ciudad}
@@ -102,17 +101,15 @@ export default function CiudadCombobox({
                     {({ selected, active }) => (
                       <>
                         <span
-                          className={`block truncate ${
-                            selected ? "font-medium" : "font-normal"
-                          }`}
+                          className={`block truncate ${selected ? "font-medium" : "font-normal"
+                            }`}
                         >
                           {ciudad}
                         </span>
                         {selected ? (
                           <span
-                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                              active ? "text-[#9ae600]" : "text-[#9ae600]"
-                            }`}
+                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? "text-[#9ae600]" : "text-[#9ae600]"
+                              }`}
                           >
                             <Check className="h-5 w-5" aria-hidden="true" />
                           </span>
