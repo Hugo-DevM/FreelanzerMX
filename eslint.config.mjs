@@ -31,7 +31,7 @@ const eslintConfig = [
       "no-unused-vars": "warn", // Cambiar de error a warning
       "react-hooks/exhaustive-deps": "warn", // Cambiar de error a warning
       "@next/next/no-img-element": "warn", // Cambiar de error a warning
-      "@typescript-eslint/no-explicit-any": "warn", // Cambiar de error a warning
+      // "@typescript-eslint/no-explicit-any": "warn", // Cambiar de error a warning
       "@typescript-eslint/no-unused-vars": "warn", // Cambiar de error a warning
     },
   },
