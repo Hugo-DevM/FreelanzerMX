@@ -54,8 +54,8 @@ export default function EstadoCombobox({
     query === ""
       ? estados
       : estados.filter((estado) =>
-          estado.toLowerCase().includes(query.toLowerCase())
-        );
+        estado.toLowerCase().includes(query.toLowerCase())
+      );
 
   return (
     <div className="w-full">
@@ -64,7 +64,7 @@ export default function EstadoCombobox({
           {label}
         </label>
       )}
-      <Combobox value={value} onChange={onChange}>
+      <Combobox value={value} onChange={(val) => onChange(val ?? "")}>
         <div className="relative mt-1">
           <Combobox.Input
             className="w-full px-4 py-4 border rounded-lg transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white text-[#0E0E2C] placeholder-[#6B7280] border-[#E5E7EB] focus:border-[#9ae600] focus:ring-[#9ae600]"
@@ -92,10 +92,9 @@ export default function EstadoCombobox({
                   <Combobox.Option
                     key={estado}
                     className={({ active }) =>
-                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                        active
-                          ? "bg-[#9ae600]/20 text-[#0E0E2C]"
-                          : "text-gray-900"
+                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active
+                        ? "bg-[#9ae600]/20 text-[#0E0E2C]"
+                        : "text-gray-900"
                       }`
                     }
                     value={estado}
@@ -103,17 +102,15 @@ export default function EstadoCombobox({
                     {({ selected, active }) => (
                       <>
                         <span
-                          className={`block truncate ${
-                            selected ? "font-medium" : "font-normal"
-                          }`}
+                          className={`block truncate ${selected ? "font-medium" : "font-normal"
+                            }`}
                         >
                           {estado}
                         </span>
                         {selected ? (
                           <span
-                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                              active ? "text-[#9ae600]" : "text-[#9ae600]"
-                            }`}
+                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? "text-[#9ae600]" : "text-[#9ae600]"
+                              }`}
                           >
                             <Check className="h-5 w-5" aria-hidden="true" />
                           </span>
