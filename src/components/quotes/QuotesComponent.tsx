@@ -19,6 +19,7 @@ import QuoteForm from "./QuoteForm";
 import QuotePreview from "./QuotePreview";
 import { QuoteTableSkeleton } from "../ui/SkeletonLoader";
 import { useRouter, usePathname } from "next/navigation";
+import AIQuoteModal from "./AIQuoteModal";
 
 // Corrige desfase de fechas por zona horaria
 const parseLocalDate = (dateString: string) => {
@@ -27,9 +28,11 @@ const parseLocalDate = (dateString: string) => {
 };
 
 export default function QuotesComponent() {
-  const { user } = useAuthContext();
+  const { user, userPlan, userProfile } = useAuthContext();
   const { quotes, loading, error, refreshData } = useQuotes();
   const [showForm, setShowForm] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiInitialData, setAiInitialData] = useState<any | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<QuoteData | null>(null);
   const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -62,7 +65,6 @@ export default function QuotesComponent() {
           table: "quotes",
         },
         (payload) => {
-          // Recargar cotizaciones solo si hay cambios relevantes
           refreshData();
         }
       )
@@ -146,7 +148,6 @@ export default function QuotesComponent() {
       setQuoteToDelete(null);
       setSelectedQuote(null);
 
-      // refresca desde base si quieres mantenerlo limpio
       await refreshData();
     } catch (error) {
       console.error("Error deleting quote:", error);
@@ -231,7 +232,7 @@ export default function QuotesComponent() {
             ← Volver a Cotizaciones
           </Button>
         </div>
-        <QuoteForm />
+        <QuoteForm initialData={aiInitialData || undefined} />
         <ConfirmModal
           open={!!quoteToDelete}
           message="¿Estás seguro de que quieres eliminar esta cotización?"
@@ -259,7 +260,7 @@ export default function QuotesComponent() {
         <QuotePreview
           quoteData={selectedQuote}
           onBack={() => setSelectedQuote(null)}
-          onGeneratePDF={() => {}}
+          onGeneratePDF={() => { }}
           extraActions={({ quoteData }) => (
             <div className="flex gap-2">
               <Button
@@ -312,14 +313,27 @@ export default function QuotesComponent() {
               Gestiona tus cotizaciones y propuestas
             </p>
           </div>
-          <Button
-            onClick={() => setShowForm(true)}
-            size="lg"
-            className="flex items-center gap-2"
-          >
-            <PlusIcon />
-            Nueva Cotización
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setShowForm(true)}
+              size="lg"
+              className="flex items-center gap-2"
+            >
+              <PlusIcon />
+              Nueva Cotización
+            </Button>
+
+            <Button
+              onClick={() => setShowAIModal(true)}
+              size="lg"
+              variant="secondary"
+              className="flex items-center gap-2"
+              disabled={userPlan !== "pro"}
+              title={userPlan !== "pro" ? "Disponible solo en plan Pro" : undefined}
+            >
+              🤖 Generar con IA (Pro)
+            </Button>
+          </div>
         </div>
 
         {loading || isPending ? (
@@ -372,9 +386,8 @@ export default function QuotesComponent() {
                     <span
                       className={`text-sm font-medium ${getStatusColor(
                         quote.status
-                      )} ${
-                        updatingQuotes.has(quote.id) ? "animate-pulse" : ""
-                      }`}
+                      )} ${updatingQuotes.has(quote.id) ? "animate-pulse" : ""
+                        }`}
                     >
                       {getStatusText(quote.status)}
                       {updatingQuotes.has(quote.id) && (
@@ -399,12 +412,12 @@ export default function QuotesComponent() {
                     <span className="text-sm text-[#666666]">
                       {quote.delivery_date
                         ? parseLocalDate(
-                            quote.delivery_date
-                          ).toLocaleDateString("es-MX", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })
+                          quote.delivery_date
+                        ).toLocaleDateString("es-MX", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
                         : formatDate(quote.created_at)}
                     </span>
                   </div>
@@ -416,15 +429,14 @@ export default function QuotesComponent() {
                         handleStatusChange(
                           quote.id,
                           e.target.value as
-                            | "draft"
-                            | "sent"
-                            | "approved"
-                            | "rejected"
+                          | "draft"
+                          | "sent"
+                          | "approved"
+                          | "rejected"
                         )
                       }
-                      className={`custom-select ${
-                        updatingQuotes.has(quote.id) ? "opacity-75" : ""
-                      }`}
+                      className={`custom-select ${updatingQuotes.has(quote.id) ? "opacity-75" : ""
+                        }`}
                       disabled={updatingQuotes.has(quote.id)}
                     >
                       <option value="draft">Borrador</option>
@@ -463,6 +475,16 @@ export default function QuotesComponent() {
         open={!!localError}
         message={localError || ""}
         onClose={() => setLocalError(null)}
+      />
+
+      <AIQuoteModal
+        open={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        defaultFreelancerName={`${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim()}
+        onGenerated={(data) => {
+          setAiInitialData(data);
+          setShowForm(true);
+        }}
       />
     </div>
   );

@@ -84,6 +84,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<QuoteFormData | null>(null);
 
   useEffect(() => {
     const total = formData.services.reduce(
@@ -149,6 +150,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
     }
 
     try {
+      // Tomar snapshot para vista previa antes de posibles resets
+      const snapshot: QuoteFormData = JSON.parse(JSON.stringify(formData));
       if (!user) {
         throw new Error("Usuario no autenticado");
       }
@@ -180,6 +183,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
         };
         await updateQuote(initialData.id, updateData);
         setSavedQuoteId(initialData.id);
+        setPreviewData(snapshot);
       } else {
         // Mapear campos camelCase a snake_case para la base de datos
         const quoteData = {
@@ -207,19 +211,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
         };
         const quoteId = await createQuote(quoteData);
         setSavedQuoteId(quoteId);
-        setFormData({
-          freelancerName: `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`,
-          clientName: "",
-          services: [{ id: "1", description: "", price: 0 }],
-          totalAmount: 0,
-          paymentTerms: "",
-          validity: 10,
-          deliveryTime: 12,
-          city: userProfile?.address?.city || "",
-          date: new Date().toISOString().split("T")[0],
-        });
-
-
+        setPreviewData(snapshot);
       }
 
       if (typeof onQuoteCreated === "function") {
@@ -241,7 +233,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
     alert("Funcionalidad de generación de PDF en desarrollo");
   };
 
-  if (showPreview && savedQuoteId) {
+  if (showPreview && savedQuoteId && previewData) {
     return (
       <QuotePreview
         key={savedQuoteId}
@@ -251,25 +243,25 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ initialData, onCancel, onQuoteCre
           user_id: user?.uid || "",
           created_at: new Date(),
           updated_at: new Date(),
-          freelancer_name: formData.freelancerName,
-          client_name: formData.clientName,
+          freelancer_name: previewData.freelancerName,
+          client_name: previewData.clientName,
           client_email: "",
           client_phone: "",
           client_address: "",
-          service_description: formData.services
+          service_description: previewData.services
             .map((s) => s.description)
             .join(", "),
-          services: formData.services,
-          subtotal: formData.totalAmount,
+          services: previewData.services,
+          subtotal: previewData.totalAmount,
           tax_rate: 0,
           tax_amount: 0,
-          total: formData.totalAmount,
+          total: previewData.totalAmount,
           currency: "MXN",
-          payment_terms: formData.paymentTerms,
-          delivery_date: formData.date,
-          city: formData.city,
-          validity: formData.validity, // <-- Añadido
-          delivery_time: formData.deliveryTime, // <-- Añadido
+          payment_terms: previewData.paymentTerms,
+          delivery_date: previewData.date,
+          city: previewData.city,
+          validity: previewData.validity, // <-- Añadido
+          delivery_time: previewData.deliveryTime, // <-- Añadido
         }}
         onBack={() => { }}
         onGeneratePDF={handleGeneratePDF}
