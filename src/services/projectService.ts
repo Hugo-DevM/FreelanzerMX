@@ -180,8 +180,10 @@ export const getProjectTasks = async (projectId: string): Promise<Task[]> => {
   if (error) throw error;
   return (data || []).map((task: any) => ({
     ...task,
-    dueDate: task.due_date, // mapeo correcto
-    estimatedHours: task.estimated_hours, // mapeo correcto
+    dueDate: task.due_date,
+    estimatedHours: task.estimated_hours,
+    priority: task.priority,
+    order: task.order,
     createdAt: new Date(task.created_at),
     updatedAt: new Date(task.updated_at),
   }));

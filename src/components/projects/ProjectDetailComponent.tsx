@@ -57,6 +57,8 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [showAddTask, setShowAddTask] = useState(false);
   const [aiUsed, setAiUsed] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  const [showOptimizeModal, setShowOptimizeModal] = useState(false);
   // const [editingTask, setEditingTask] = useState<string | null>(null);
   const [progressAnimated, setProgressAnimated] = useState(0);
   const progressRef = useRef<number>(0);
@@ -65,6 +67,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [generatingTasks, setGeneratingTasks] = useState(false);
+  const [userRole, setUserRole] = useState<"free" | "pro" | null>(null);
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -147,6 +150,45 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
       channel.unsubscribe();
     };
   }, [projectId]);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+
+        if (!auth.user) {
+          console.log("Sin sesión");
+          setUserRole("free");
+          return;
+        }
+
+        const authId = auth.user.id;
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("plan")
+          .eq("id", authId)
+          .single();
+
+        if (error) {
+          console.error("Error cargando perfil:", error);
+          setUserRole("free");
+          return;
+        }
+
+        console.log("Perfil cargado:", profile);
+
+        const plan = profile?.plan?.toLowerCase?.() ?? "free";
+
+        setUserRole(plan); // "pro" o "free"
+      } catch (e) {
+        console.error("Error inesperado:", e);
+        setUserRole("free");
+      }
+    };
+
+    loadUser();
+  }, []);
 
   useEffect(() => {
     if (project) {
@@ -347,6 +389,49 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     }
   };
 
+  const handleOptimizeAI = () => {
+    setShowOptimizeModal(true);
+  };
+
+  const confirmOptimize = async () => {
+    setOptimizing(true);
+
+    try {
+      const response = await fetch("/api/ai/optimize-priority", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Error optimizando prioridades");
+      }
+
+      const data = await response.json();
+
+      if (!data.tasks || !Array.isArray(data.tasks)) {
+        throw new Error("Respuesta inválida de la IA");
+      }
+
+      // Actualizar cada tarea en Supabase
+      for (const t of data.tasks) {
+        await updateTask(t.id, {
+          priority: t.priority,
+          order: t.order,
+        });
+      }
+
+      await loadTasks();
+      setShowOptimizeModal(false);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+
   const handleUpdateTaskStatus = useCallback(
     async (taskId: string, status: Task["status"]) => {
       try {
@@ -362,6 +447,33 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
     },
     [projectId]
   );
+
+  const getTaskPriorityColor = (priority: Task["priority"]) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-600";
+      case "medium":
+        return "bg-yellow-100 text-yellow-600";
+      case "low":
+        return "bg-green-100 text-green-600";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  const getTaskPriorityLabel = (priority: Task["priority"]) => {
+    switch (priority) {
+      case "high":
+        return "Alta";
+      case "medium":
+        return "Media";
+      case "low":
+        return "Baja";
+      default:
+        return "Sin prioridad";
+    }
+  };
+
 
   const handleDeleteTask = async (taskId: string) => {
     setDeleteTaskId(taskId);
@@ -652,7 +764,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                   Tareas del Proyecto
                 </h2>
                 <div className="flex gap-3">
-                  {project.description && (
+                  {project.description && userRole === "pro" && (
                     <Button
                       onClick={handleGenerateTasksWithAI}
                       disabled={generatingTasks || loadingTasks || aiUsed}
@@ -664,6 +776,19 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                       {generatingTasks ? "Generando..." : aiUsed ? "Ya generaste las tareas" : "Generar con IA"}
                     </Button>
                   )}
+
+                  {userRole === "pro" && (
+                    <Button
+                      onClick={handleOptimizeAI}
+                      disabled={optimizing || loadingTasks}
+                      loading={optimizing}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      ⚡ Optimizar Prioridades
+                    </Button>
+                  )}
+
                   <Button
                     onClick={() => setShowAddTask(true)}
                     className="flex items-center gap-2"
@@ -719,66 +844,87 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {tasks.map((task) => (
-                    <Card key={task.id}>
-                      <div className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <button
-                                onClick={() =>
-                                  handleUpdateTaskStatus(
-                                    task.id,
-                                    task.status === "done" ? "todo" : "done"
-                                  )
-                                }
-                                className={`p-1 rounded transition-all duration-200 ${task.status === "done"
-                                  ? "bg-green-100 text-green-600 scale-110"
-                                  : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                                  }`}
-                              >
-                                <CheckIcon size={16} />
-                              </button>
-                              <h3
-                                className={`font-medium ${task.status === "done"
-                                  ? "line-through text-gray-500"
-                                  : "text-[#1A1A1A]"
-                                  }`}
-                              >
-                                {task.title}
-                              </h3>
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                  task.status
-                                )}`}
-                              >
-                                {getStatusText(task.status)}
-                              </span>
-                            </div>
-                            {task.description && (
-                              <p className="text-[#666666] text-sm mb-2">
-                                {task.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 text-xs text-[#666666]">
-                              <span>Vence: {formatDate(task.dueDate)}</span>
-                              {task.estimatedHours && (
-                                <span>Estimado: {task.estimatedHours}h</span>
+                  {[...tasks]
+                    .sort((a, b) => {
+                      const statusOrder = {
+                        "todo": 1,
+                        "in-progress": 1,
+                        "done": 2
+                      };
+                      if (statusOrder[a.status] !== statusOrder[b.status]) {
+                        return statusOrder[a.status] - statusOrder[b.status];
+                      }
+                      return (a.order ?? 999) - (b.order ?? 999);
+                    })
+                    .map((task) => (
+                      <Card key={task.id}>
+                        <div className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <button
+                                  onClick={() =>
+                                    handleUpdateTaskStatus(
+                                      task.id,
+                                      task.status === "done" ? "todo" : "done"
+                                    )
+                                  }
+                                  className={`p-1 rounded transition-all duration-200 ${task.status === "done"
+                                    ? "bg-green-100 text-green-600 scale-110"
+                                    : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                                    }`}
+                                >
+                                  <CheckIcon size={16} />
+                                </button>
+                                <h3
+                                  className={`font-medium ${task.status === "done"
+                                    ? "line-through text-gray-500"
+                                    : "text-[#1A1A1A]"
+                                    }`}
+                                >
+                                  {task.title}
+                                </h3>
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                    task.status
+                                  )}`}
+                                >
+                                  {getStatusText(task.status)}
+                                </span>
+                                {task.priority && (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${getTaskPriorityColor(
+                                      task.priority
+                                    )}`}
+                                  >
+                                    {getTaskPriorityLabel(task.priority)}
+                                  </span>
+                                )}
+                              </div>
+                              {task.description && (
+                                <p className="text-[#666666] text-sm mb-2">
+                                  {task.description}
+                                </p>
                               )}
+                              <div className="flex items-center gap-4 text-xs text-[#666666]">
+                                <span>Vence: {formatDate(task.dueDate)}</span>
+                                {task.estimatedHours && (
+                                  <span>Estimado: {task.estimatedHours}h</span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="p-1 text-red-500 hover:text-red-700"
-                            >
-                              <TrashIcon size={16} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1 text-red-500 hover:text-red-700"
+                              >
+                                <TrashIcon size={16} />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    ))}
                 </div>
               )}
             </div>
@@ -898,6 +1044,17 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           onCancel={cancelDeleteTask}
           loading={deleting}
         />
+
+        <ConfirmModal
+          open={showOptimizeModal}
+          message="La IA reorganizará todas tus tareas y ajustará prioridades. ¿Deseas continuar?"
+          confirmText="Optimizar"
+          cancelText="Cancelar"
+          loading={optimizing}
+          onConfirm={confirmOptimize}
+          onCancel={() => setShowOptimizeModal(false)}
+        />
+
 
         {/* Error Modal */}
         <ErrorModal

@@ -8,6 +8,8 @@ export interface Task {
   actualHours?: number;
   createdAt: Date;
   updatedAt: Date;
+  priority?: "high" | "medium" | "low";
+  order?: number;
 }
 
 export interface Project {
@@ -57,6 +59,8 @@ export interface UpdateTaskData {
   dueDate?: string;
   estimatedHours?: number;
   actualHours?: number;
+  priority?: "high" | "medium" | "low";
+  order?: number;
 }
 
 export interface Contract {
