@@ -21,6 +21,26 @@ import ErrorModal from "../shared/ErrorModal";
 import { ArrowLeftIcon, PlusIcon, TrashIcon, CheckIcon } from "../ui/icons";
 import ConfirmModal from "../ui/ConfirmModal";
 
+// Icono para generar tareas con IA
+const SparklesIcon: React.FC<{ className?: string; size?: number }> = ({
+  className = "",
+  size = 20,
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
 interface ProjectDetailComponentProps {
   projectId: string;
 }
@@ -36,6 +56,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [showAddTask, setShowAddTask] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
   // const [editingTask, setEditingTask] = useState<string | null>(null);
   const [progressAnimated, setProgressAnimated] = useState(0);
   const progressRef = useRef<number>(0);
@@ -43,6 +64,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [generatingTasks, setGeneratingTasks] = useState(false);
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -143,7 +165,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
       const animate = () => {
         if (progressRef.current !== project.progress) {
           const diff = project.progress - progressRef.current;
-          progressRef.current += diff * 0.3; // velocidad de animación más rápida
+          progressRef.current += diff * 0.3;
           if (Math.abs(diff) < 0.5) {
             progressRef.current = project.progress;
           } else {
@@ -221,7 +243,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
       setTasks((prev) => [
         ...prev,
         {
-          id: taskId, // aseguramos que siempre es string
+          id: taskId,
           title: taskData.title,
           description: taskData.description,
           status: "todo",
@@ -241,6 +263,87 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
       setShowAddTask(false);
     } catch (err: any) {
       setError(err.message || "Error al agregar la tarea");
+    }
+  };
+
+  const handleGenerateTasksWithAI = async () => {
+    if (generatingTasks) {
+      return;
+    }
+    if (!project || !project.description) {
+      setError("El proyecto debe tener una descripción para generar tareas con IA");
+      return;
+    }
+
+    setGeneratingTasks(true);
+    try {
+      const response = await fetch("/api/ai/generate-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectDescription: project.description,
+          projectName: project.name,
+          projectDueDate: project.dueDate
+            ? new Date(project.dueDate).toISOString().split("T")[0]
+            : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al generar tareas con IA");
+      }
+
+      const data = await response.json();
+      const generatedTasks = data.tasks || [];
+
+      if (generatedTasks.length === 0) {
+        setError("No se pudieron generar tareas. Intenta con una descripción más detallada.");
+        return;
+      }
+
+      // Crear cada tarea generada
+      let createdCount = 0;
+      for (const taskData of generatedTasks) {
+        try {
+          const taskId = crypto?.randomUUID?.() || Date.now().toString() + Math.random();
+          const createTaskData: CreateTaskData = {
+            id: taskId,
+            title: taskData.title,
+            description: taskData.description || undefined,
+            estimatedHours: taskData.estimatedHours || undefined,
+            dueDate: project.dueDate
+              ? new Date(project.dueDate).toISOString().split("T")[0]
+              : undefined,
+          };
+
+          await addTaskToProject(projectId, createTaskData);
+          createdCount++;
+
+          // Pequeña pausa para evitar sobrecarga
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (taskError: any) {
+          console.error("Error creando tarea:", taskError);
+          // Continuar con las demás tareas aunque una falle
+        }
+      }
+
+      // Recargar las tareas para mostrar las nuevas
+      await loadTasks();
+
+      if (createdCount < generatedTasks.length) {
+        setError(
+          `Se crearon ${createdCount} de ${generatedTasks.length} tareas. Algunas tareas no se pudieron crear.`
+        );
+      }
+    } catch (err: any) {
+      console.error("Error generating tasks:", err);
+      setError(err.message || "Error al generar las tareas con IA");
+    } finally {
+      setGeneratingTasks(false);
+      setAiUsed(true);
     }
   };
 
@@ -525,11 +628,10 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? "border-[#9ae600] text-[#9ae600]"
-                      : "border-transparent text-[#666666] hover:text-[#1A1A1A] hover:border-gray-300"
-                  }`}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                    ? "border-[#9ae600] text-[#9ae600]"
+                    : "border-transparent text-[#666666] hover:text-[#1A1A1A] hover:border-gray-300"
+                    }`}
                 >
                   {tab.label}
                   {tab.count > 0 && (
@@ -549,13 +651,27 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                 <h2 className="text-xl font-semibold text-[#1A1A1A]">
                   Tareas del Proyecto
                 </h2>
-                <Button
-                  onClick={() => setShowAddTask(true)}
-                  className="flex items-center gap-2"
-                >
-                  <PlusIcon />
-                  Agregar Tarea
-                </Button>
+                <div className="flex gap-3">
+                  {project.description && (
+                    <Button
+                      onClick={handleGenerateTasksWithAI}
+                      disabled={generatingTasks || loadingTasks || aiUsed}
+                      loading={generatingTasks}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      {!generatingTasks && <SparklesIcon size={16} />}
+                      {generatingTasks ? "Generando..." : aiUsed ? "Ya generaste las tareas" : "Generar con IA"}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setShowAddTask(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <PlusIcon />
+                    Agregar Tarea
+                  </Button>
+                </div>
               </div>
               {loadingTasks ? (
                 <div className="space-y-4">
@@ -574,15 +690,31 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                       No hay tareas aún
                     </h3>
                     <p className="text-[#666666] mb-4">
-                      Comienza agregando tareas para organizar tu trabajo
+                      {project.description
+                        ? "Genera tareas automáticamente con IA o agrégalas manualmente"
+                        : "Comienza agregando tareas para organizar tu trabajo"}
                     </p>
-                    <Button
-                      onClick={() => setShowAddTask(true)}
-                      className="flex items-center gap-2 mx-auto"
-                    >
-                      <PlusIcon />
-                      Agregar Primera Tarea
-                    </Button>
+                    <div className="flex gap-3 justify-center">
+                      {project.description && (
+                        <Button
+                          onClick={handleGenerateTasksWithAI}
+                          disabled={generatingTasks || loadingTasks}
+                          loading={generatingTasks}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          {!generatingTasks && <SparklesIcon size={16} />}
+                          {generatingTasks ? "Generando..." : "Generar con IA"}
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => setShowAddTask(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <PlusIcon />
+                        Agregar Primera Tarea
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ) : (
@@ -600,20 +732,18 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                                     task.status === "done" ? "todo" : "done"
                                   )
                                 }
-                                className={`p-1 rounded transition-all duration-200 ${
-                                  task.status === "done"
-                                    ? "bg-green-100 text-green-600 scale-110"
-                                    : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                                }`}
+                                className={`p-1 rounded transition-all duration-200 ${task.status === "done"
+                                  ? "bg-green-100 text-green-600 scale-110"
+                                  : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                                  }`}
                               >
                                 <CheckIcon size={16} />
                               </button>
                               <h3
-                                className={`font-medium ${
-                                  task.status === "done"
-                                    ? "line-through text-gray-500"
-                                    : "text-[#1A1A1A]"
-                                }`}
+                                className={`font-medium ${task.status === "done"
+                                  ? "line-through text-gray-500"
+                                  : "text-[#1A1A1A]"
+                                  }`}
                               >
                                 {task.title}
                               </h3>
