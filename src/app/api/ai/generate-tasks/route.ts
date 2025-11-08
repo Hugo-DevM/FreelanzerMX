@@ -17,36 +17,46 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        const today = new Date().toISOString().split("T")[0];
+
         const userPrompt = `
-Genera una lista de tareas específicas y accionables para el siguiente proyecto en formato JSON ESTRICTO (sin texto adicional).
+Genera una lista COMPLETA y EXHAUSTIVA de tareas específicas para el siguiente proyecto.
 
-Contexto del proyecto:
-- Nombre: ${projectName || "Proyecto sin nombre"}
-- Descripción: ${projectDescription}
-${projectDueDate ? `- Fecha límite: ${projectDueDate}` : ""}
+REQUISITOS IMPORTANTES:
+- Cada tarea debe ser MUY específica y accionable.
+- Prohibido crear tareas generales o ambiguas.
+- Divide tareas grandes en microtareas.
+- NO limites la cantidad de tareas. Genera tantas como sean necesarias.
+- Cada tarea debe tener su propia fecha límite realista (dueDate).
 
-Genera entre 3 y 8 tareas relevantes basadas en la descripción del proyecto. Cada tarea debe incluir:
-- title: Título claro y específico de la tarea (máximo 60 caracteres)
-- description: Descripción breve de lo que implica la tarea (opcional, máximo 150 caracteres)
-- estimatedHours: Horas estimadas para completar la tarea (número entero, entre 1 y 40 horas)
+CÓMO CALCULAR LA FECHA LÍMITE (dueDate):
+1. Hoy es: ${today}
+2. La fecha límite del proyecto es: ${projectDueDate || "No proporcionada"}
+3. Calcula cuántos días hay entre hoy y la fecha límite.
+4. Reparte ese tiempo entre todas las tareas generadas.
+5. Las tareas tempranas deben tener fechas más próximas.
+6. La última tarea puede coincidir con la fecha límite del proyecto.
+7. Prohibido asignar a todas las tareas la fecha final del proyecto.
 
-Formato JSON requerido:
+FORMATO JSON ESTRICTO:
 {
   "tasks": [
     {
-      "title": "Título de la tarea",
-      "description": "Descripción opcional de la tarea",
-      "estimatedHours": 4
+      "title": "texto",
+      "description": "texto",
+      "estimatedHours": número,
+      "dueDate": "YYYY-MM-DD"
     }
   ]
 }
 
-Las tareas deben ser:
-1. Específicas y accionables
-2. Ordenadas lógicamente (desde las más básicas hasta las más complejas)
-3. Realistas en términos de tiempo estimado
-4. Relevantes para el tipo de proyecto descrito
-`;
+Contexto del proyecto:
+- Nombre: ${projectName || "Proyecto sin nombre"}
+- Descripción: ${projectDescription}
+${projectDueDate ? `- Fecha límite del proyecto: ${projectDueDate}` : ""}
+
+Devuelve SOLO JSON válido.
+        `;
 
         const resp = await fetch("https://api.deepseek.com/chat/completions", {
             method: "POST",
@@ -60,7 +70,7 @@ Las tareas deben ser:
                     {
                         role: "system",
                         content:
-                            "Eres un asistente experto en gestión de proyectos y planificación de tareas para freelancers. Responde únicamente con JSON válido, sin texto adicional antes o después.",
+                            "Eres un experto en gestión de proyectos. Responde siempre en JSON estricto y válido.",
                     },
                     { role: "user", content: userPrompt },
                 ],
@@ -93,11 +103,12 @@ Las tareas deben ser:
             estimatedHours: task.estimatedHours
                 ? Math.max(1, Math.min(40, Math.round(task.estimatedHours)))
                 : 4,
+            dueDate: task.dueDate || projectDueDate || null,
         }));
 
         if (tasks.length === 0) {
             return NextResponse.json(
-                { error: "No se pudieron generar tareas. Por favor, intenta con una descripción más detallada." },
+                { error: "No se generaron tareas. Intenta con una descripción más detallada." },
                 { status: 400 }
             );
         }
@@ -111,4 +122,3 @@ Las tareas deben ser:
         );
     }
 }
-
