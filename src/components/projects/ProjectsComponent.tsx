@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useTransition } from "react";
 import { useProjects } from "../../contexts/ProjectContext";
 import { useAuthContext } from "../../contexts/AuthContext";
+import type { Project } from "../../types/project";
 import {
   canCreateProject,
   getProjectLimit,
@@ -73,9 +74,9 @@ const ProjectsComponent: React.FC = () => {
           table: "projects",
           filter: `user_id=eq.${user.uid}`,
         },
-        (payload) => {
+        (payload: { new?: Project; old?: Project; eventType: string }) => {
           console.log("🔁 Cambio detectado en projects:", payload);
-          refreshData(); // Vuelve a cargar los proyectos en tiempo real
+          refreshData();
         }
       )
       .subscribe();
@@ -231,7 +232,7 @@ const ProjectsComponent: React.FC = () => {
           userId={user?.uid || ""}
         />
       )}
-      <ErrorModal open={!!error} message={error || ""} onClose={() => {}} />
+      <ErrorModal open={!!error} message={error || ""} onClose={() => { }} />
     </div>
   );
 };

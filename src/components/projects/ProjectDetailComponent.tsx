@@ -96,7 +96,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
           table: "projects",
           filter: `id=eq.${projectId}`,
         },
-        async (payload) => {
+        async (payload: { new: Project | null; old: Project | null; eventType: string }) => {
           console.log("📡 Cambio detectado en proyecto:", payload);
           if (payload.new) {
             try {

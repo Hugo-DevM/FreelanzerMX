@@ -5,6 +5,7 @@ import { useQuotes } from "../../contexts/QuoteContext";
 import { useAuthContext } from "../../contexts/AuthContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
+import type { Project } from "../../types/project";
 import {
   QuoteData,
   updateQuoteStatus,
@@ -64,7 +65,7 @@ export default function QuotesComponent() {
           schema: "public",
           table: "quotes",
         },
-        (payload) => {
+        (payload: { new?: Project; old?: Project; eventType: string }) => {
           refreshData();
         }
       )
