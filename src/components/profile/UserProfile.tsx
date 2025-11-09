@@ -11,7 +11,7 @@ import { supabase } from "../../lib/supabase";
 import ConfirmModal from "../shared/ConfirmModal";
 import EstadoCombobox from "../ui/EstadoCombobox";
 import CiudadCombobox from "../ui/CiudadCombobox";
-import { User } from "@supabase/supabase-js";
+import { User, AuthError } from "@supabase/supabase-js";
 
 const UserProfileComponent: React.FC = () => {
   const { userProfile, refreshUserProfile } = useAuthContext();
@@ -59,8 +59,14 @@ const UserProfileComponent: React.FC = () => {
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthUser(data.user);
+    supabase.auth.getUser().then(({ data, error }: { data: { user: User | null }, error: AuthError | null }) => {
+      if (error) {
+        console.error("Error getting user:", error);
+        return;
+      }
+      if (data?.user) {
+        setAuthUser(data.user);
+      }
     });
   }, []);
 
