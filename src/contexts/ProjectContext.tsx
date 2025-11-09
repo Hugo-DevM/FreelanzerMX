@@ -25,14 +25,24 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    // Esperar a que el auth termine de cargar antes de intentar cargar datos
+    if (authLoading) return;
+    if (!user) {
+      // Si no hay usuario pero hay datos en cache, mantenerlos por un tiempo
+      // Esto evita que se pierdan los datos cuando la sesión se pierde temporalmente
+      if (projects.length > 0) {
+        // No limpiar inmediatamente, esperar a que la sesión se recupere
+        return;
+      }
+      return;
+    }
     const cacheKey = `${user.uid}-projects`;
     const cached = localStorage.getItem(cacheKey);
     let loadedFromCache = false;
@@ -55,9 +65,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchData = useCallback(async () => {
+    if (authLoading) return;
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -72,9 +83,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const refreshData = useCallback(async () => {
+    if (authLoading) return;
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -90,7 +102,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   return (
     <ProjectContext.Provider

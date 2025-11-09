@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { User, AuthError, AuthState } from "../types/auth";
 import {
@@ -13,6 +13,7 @@ import {
   updateUserProfile,
 } from "../services/userService";
 import { useRouter } from "next/navigation";
+import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
 
 export const useAuth = () => {
   const router = useRouter();
@@ -24,6 +25,9 @@ export const useAuth = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
+
+  // Ref para mantener el estado actual en los event listeners
+  const authStateRef = useRef(authState);
 
   const toCamelCaseProfile = (profile: any): UserProfile | null => {
     if (!profile) return null;
@@ -73,6 +77,11 @@ export const useAuth = () => {
     }
   }, []);
 
+  // Actualizar el ref cada vez que cambie authState
+  useEffect(() => {
+    authStateRef.current = authState;
+  }, [authState]);
+
   const updatePlan = useCallback(
     async (plan: "free" | "pro" | "team") => {
       if (!authState.user) return;
@@ -90,29 +99,116 @@ export const useAuth = () => {
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        const user: User = {
-          uid: session.user.id,
-          email: session.user.email || "",
-          displayName: session.user.user_metadata?.display_name,
-          photoURL: session.user.user_metadata?.avatar_url,
-          createdAt: new Date(session.user.created_at),
-        };
-        setAuthState({ user, loading: false, error: null });
-        loadUserProfile(session.user.id);
-      } else {
+      try {
+        // Intentar obtener la sesión
+        let { data: { session }, error } = await supabase.auth.getSession();
+
+        // Si no hay sesión pero tampoco hay error, intentar refrescar desde el storage
+        if (!session && !error) {
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+          if (!refreshError && refreshedSession) {
+            session = refreshedSession;
+          }
+        }
+
+        if (session?.user) {
+          const user: User = {
+            uid: session.user.id,
+            email: session.user.email || "",
+            displayName: session.user.user_metadata?.display_name,
+            photoURL: session.user.user_metadata?.avatar_url,
+            createdAt: new Date(session.user.created_at),
+          };
+          setAuthState({ user, loading: false, error: null });
+          loadUserProfile(session.user.id);
+        } else {
+          setAuthState({ user: null, loading: false, error: null });
+        }
+      } catch (error) {
+        console.error("Error getting initial session:", error);
         setAuthState({ user: null, loading: false, error: null });
       }
     };
 
     getInitialSession();
 
+    const handleVisibilityChange = async () => {
+      const visibilityState = document.visibilityState;
+
+      if (visibilityState === 'visible') {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error("Error checking session on visibility change:", error);
+            return;
+          }
+
+          if (session?.user) {
+            // Si hay sesión, actualizar el estado
+            const user: User = {
+              uid: session.user.id,
+              email: session.user.email || "",
+              displayName: session.user.user_metadata?.display_name,
+              photoURL: session.user.user_metadata?.avatar_url,
+              createdAt: new Date(session.user.created_at),
+            };
+            setAuthState((prev) => {
+              // Solo actualizar si el usuario cambió o si no había usuario
+              if (!prev.user || prev.user.uid !== user.uid) {
+                return { user, loading: false, error: null };
+              }
+              return prev;
+            });
+          } else {
+            // Si no hay sesión, intentar refrescar
+            setAuthState((prev) => {
+              // Solo intentar refrescar si había un usuario antes
+              if (prev.user) {
+                // Intentar refrescar la sesión
+                supabase.auth.refreshSession().then(({ data: { session: refreshedSession }, error: refreshError }: { data: { session: Session | null }, error: Error | null }) => {
+                  if (!refreshError && refreshedSession?.user) {
+                    const user: User = {
+                      uid: refreshedSession.user.id,
+                      email: refreshedSession.user.email || "",
+                      displayName: refreshedSession.user.user_metadata?.display_name,
+                      photoURL: refreshedSession.user.user_metadata?.avatar_url,
+                      createdAt: new Date(refreshedSession.user.created_at),
+                    };
+                    setAuthState({ user, loading: false, error: null });
+                  } else {
+                    // Si después de refrescar tampoco hay sesión, limpiar
+                    setAuthState({ user: null, loading: false, error: null });
+                  }
+                }).catch((refreshError: unknown) => {
+                  console.error("Error refreshing session on visibility change:", refreshError);
+                  // No limpiar inmediatamente, puede ser un error temporal
+                });
+              }
+              return prev;
+            });
+          }
+        } catch (error) {
+          console.error("Error in visibility change handler:", error);
+        }
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      // Handler para beforeunload
+    };
+
+    const handleUnload = () => {
+      // Handler para unload
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (session?.user) {
         const user: User = {
           uid: session.user.id,
@@ -121,95 +217,111 @@ export const useAuth = () => {
           photoURL: session.user.user_metadata?.avatar_url,
           createdAt: new Date(session.user.created_at),
         };
+
+        // Verificar si el usuario ya está en el estado antes de actualizar
+        const currentState = authStateRef.current;
+        const isSameUser = currentState.user?.uid === user.uid;
+
         setAuthState({ user, loading: false, error: null });
 
-        // Verificar si el usuario ya tiene un perfil
-        const profileExists = await userProfileExists(session.user.id);
+        // Solo verificar/crear perfil si es un nuevo inicio de sesión, no si es el mismo usuario
+        if (event === 'SIGNED_IN' && !isSameUser) {
+          // Verificar si el usuario ya tiene un perfil
+          const profileExists = await userProfileExists(session.user.id);
 
-        if (!profileExists) {
-          // Crear perfil automáticamente para usuarios de Google
-          try {
-            const googleData = extractGoogleData(session.user.user_metadata);
-
-            await createUserProfile({
-              id: session.user.id,
-              email: session.user.email || "",
-              display_name: googleData.display_name,
-              first_name: googleData.first_name,
-              last_name: googleData.last_name,
-              phone: googleData.phone,
-              company: googleData.company,
-              business_info: {
-                business_name: googleData.business_name,
-              },
-            });
-          } catch (error) {
-            console.error(
-              "Error creating user profile for Google user:",
-              error
-            );
-          }
-        } else {
-          // Si el perfil existe, verificar si necesita actualización con datos de Google
-          try {
-            const existingProfile = await getUserProfile(session.user.id);
-
-            // Verificar si el usuario se registró con Google
-            const isGoogleUser =
-              session.user.app_metadata?.provider === "google" ||
-              session.user.user_metadata?.provider === "google" ||
-              session.user.user_metadata?.full_name ||
-              session.user.user_metadata?.avatar_url;
-
-            if (existingProfile && isGoogleUser) {
+          if (!profileExists) {
+            // Crear perfil automáticamente para usuarios de Google
+            try {
               const googleData = extractGoogleData(session.user.user_metadata);
 
-              // Solo actualizar si los campos están vacíos (no sobrescribir datos existentes)
-              const needsUpdate =
-                !existingProfile.first_name ||
-                !existingProfile.last_name ||
-                !existingProfile.display_name ||
-                existingProfile.first_name === "EMPTY" ||
-                existingProfile.last_name === "EMPTY" ||
-                existingProfile.display_name === "EMPTY";
-
-              if (needsUpdate) {
-                // Actualizar perfil existente con datos de Google SOLO si están vacíos
-                await updateUserProfile(session.user.id, {
-                  display_name:
-                    existingProfile.display_name || googleData.display_name,
-                  first_name:
-                    existingProfile.first_name || googleData.first_name,
-                  last_name: existingProfile.last_name || googleData.last_name,
-                  phone: googleData.phone || existingProfile.phone || "",
-                  company: googleData.company || existingProfile.company || "",
-                  business_info: {
-                    ...existingProfile.business_info,
-                    business_name:
-                      existingProfile.business_info?.business_name ||
-                      googleData.business_name ||
-                      "",
-                  },
-                });
-              }
+              await createUserProfile({
+                id: session.user.id,
+                email: session.user.email || "",
+                display_name: googleData.display_name,
+                first_name: googleData.first_name,
+                last_name: googleData.last_name,
+                phone: googleData.phone,
+                company: googleData.company,
+                business_info: {
+                  business_name: googleData.business_name,
+                },
+              });
+            } catch (error) {
+              console.error(
+                "Error creating user profile for Google user:",
+                error
+              );
             }
-            // Si no es usuario de Google, NO hacer nada - respetar los datos existentes
-          } catch (error) {
-            console.error(
-              "Error updating existing profile with Google data:",
-              error
-            );
+          } else {
+            // Si el perfil existe, verificar si necesita actualización con datos de Google
+            try {
+              const existingProfile = await getUserProfile(session.user.id);
+
+              // Verificar si el usuario se registró con Google
+              const isGoogleUser =
+                session.user.app_metadata?.provider === "google" ||
+                session.user.user_metadata?.provider === "google" ||
+                session.user.user_metadata?.full_name ||
+                session.user.user_metadata?.avatar_url;
+
+              if (existingProfile && isGoogleUser) {
+                const googleData = extractGoogleData(session.user.user_metadata);
+
+                // Solo actualizar si los campos están vacíos (no sobrescribir datos existentes)
+                const needsUpdate =
+                  !existingProfile.first_name ||
+                  !existingProfile.last_name ||
+                  !existingProfile.display_name ||
+                  existingProfile.first_name === "EMPTY" ||
+                  existingProfile.last_name === "EMPTY" ||
+                  existingProfile.display_name === "EMPTY";
+
+                if (needsUpdate) {
+                  // Actualizar perfil existente con datos de Google SOLO si están vacíos
+                  await updateUserProfile(session.user.id, {
+                    display_name:
+                      existingProfile.display_name || googleData.display_name,
+                    first_name:
+                      existingProfile.first_name || googleData.first_name,
+                    last_name: existingProfile.last_name || googleData.last_name,
+                    phone: googleData.phone || existingProfile.phone || "",
+                    company: googleData.company || existingProfile.company || "",
+                    business_info: {
+                      ...existingProfile.business_info,
+                      business_name:
+                        existingProfile.business_info?.business_name ||
+                        googleData.business_name ||
+                        "",
+                    },
+                  });
+                }
+              }
+              // Si no es usuario de Google, NO hacer nada - respetar los datos existentes
+            } catch (error) {
+              console.error(
+                "Error updating existing profile with Google data:",
+                error
+              );
+            }
           }
         }
 
-        loadUserProfile(session.user.id);
+        // Cargar perfil solo si no es el mismo usuario
+        if (!isSameUser) {
+          loadUserProfile(session.user.id);
+        }
       } else {
         setAuthState({ user: null, loading: false, error: null });
         setUserProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
+    };
   }, [loadUserProfile]);
 
   useEffect(() => {

@@ -1,10 +1,10 @@
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Validar que las variables de entorno estén definidas
 if (!supabaseUrl) {
   console.log('No es valida url')
   throw new Error("NEXT_PUBLIC_SUPABASE_URL is required.");
@@ -15,17 +15,34 @@ if (!supabaseAnonKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is required.");
 }
 
-// Cliente para el frontend (con RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  db: { schema: "public" },
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
 
-// Cliente para el servidor (bypass RLS) - solo se crea si estamos en el servidor
+export function getSupabaseClient() {
+  if (typeof window === "undefined") {
+    throw new Error("getSupabaseClient can only be called in the browser");
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and Anon Key must be defined");
+  }
+
+  if (!supabaseClient) {
+    supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  }
+
+  return supabaseClient;
+}
+export const supabase = typeof window !== "undefined"
+  ? getSupabaseClient()
+  : (() => {
+
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  })();
 export const supabaseAdmin =
   typeof window === "undefined" && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, {
@@ -36,7 +53,6 @@ export const supabaseAdmin =
     })
     : null;
 
-// Función helper para obtener supabaseAdmin (solo en servidor)
 export function getSupabaseAdmin() {
   if (typeof window !== "undefined") {
     throw new Error(

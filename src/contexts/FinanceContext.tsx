@@ -35,14 +35,24 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
   const [finances, setFinances] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    // Esperar a que el auth termine de cargar antes de intentar cargar datos
+    if (authLoading) return;
+    if (!user) {
+      // Si no hay usuario pero hay datos en cache, mantenerlos por un tiempo
+      // Esto evita que se pierdan los datos cuando la sesión se pierde temporalmente
+      if (finances.length > 0) {
+        // No limpiar inmediatamente, esperar a que la sesión se recupere
+        return;
+      }
+      return;
+    }
     const cacheKey = `${user.uid}-finances`;
     const cached = localStorage.getItem(cacheKey);
     let loadedFromCache = false;
@@ -64,9 +74,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchData = useCallback(async () => {
+    if (authLoading) return;
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -89,9 +100,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const refreshData = useCallback(async () => {
+    if (authLoading) return;
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -115,7 +127,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   return (
     <FinanceContext.Provider

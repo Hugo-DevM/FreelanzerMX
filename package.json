@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
+    "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.50.3",
     "@types/jspdf": "^1.3.3",
     "critters": "^0.0.23",
