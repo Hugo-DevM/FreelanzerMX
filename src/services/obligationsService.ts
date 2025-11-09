@@ -98,13 +98,13 @@ export const getFreelancerObligations = async (
         .order("order_index");
 
       if (categoryError) throw categoryError;
-      specificObligations = categoryObligations?.map((o) => o.obligation) || [];
+      specificObligations = categoryObligations?.map((o: { obligation: string }) => o.obligation) || [];
     }
 
     // Combinar obligaciones específicas + base
     const allObligations = [
       ...specificObligations,
-      ...(baseObligations?.map((o) => o.obligation) || []),
+      ...(baseObligations?.map((o: { obligation: string }) => o.obligation) || []),
     ];
 
     return allObligations;
