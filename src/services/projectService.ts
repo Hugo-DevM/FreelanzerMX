@@ -282,7 +282,7 @@ export const getUsedContractIds = async (userId: string): Promise<string[]> => {
 
     if (error) throw error;
 
-    const usedIds = data.map((p) => p.contract_id).filter(Boolean);
+    const usedIds = data.map((p: { contract_id: string | null }) => p.contract_id).filter(Boolean);
     return usedIds;
   } catch (error: any) {
     console.error("Error al obtener contratos ya usados:", error);

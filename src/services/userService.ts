@@ -120,8 +120,7 @@ export const createUserProfile = async (
   } catch (error: any) {
     console.error("Error creating user profile:", error);
     throw new Error(
-      `Error al crear el perfil de usuario: ${
-        error.message || "Error desconocido"
+      `Error al crear el perfil de usuario: ${error.message || "Error desconocido"
       }`
     );
   }
@@ -235,8 +234,7 @@ export const updateUserPreferences = async (
   } catch (error: any) {
     console.error("Error updating user preferences:", error);
     throw new Error(
-      `Error al actualizar las preferencias: ${
-        error.message || "Error desconocido"
+      `Error al actualizar las preferencias: ${error.message || "Error desconocido"
       }`
     );
   }
@@ -257,8 +255,7 @@ export const updateBusinessInfo = async (
   } catch (error: any) {
     console.error("Error updating business info:", error);
     throw new Error(
-      `Error al actualizar la información de negocio: ${
-        error.message || "Error desconocido"
+      `Error al actualizar la información de negocio: ${error.message || "Error desconocido"
       }`
     );
   }
@@ -371,11 +368,11 @@ export const debugProfilesTable = async () => {
     if (data && data.length > 0) {
       console.log(
         "📧 Sample emails:",
-        data.map((p) => p.email)
+        data.map((p: { email: string }) => p.email)
       );
       console.log(
         "👤 Sample display names:",
-        data.map((p) => p.display_name)
+        data.map((p: { display_name: string }) => p.display_name)
       );
     } else {
       console.log("⚠️ No profiles found in database");
@@ -436,7 +433,7 @@ export const debugAuthSystem = async () => {
       if (profiles && profiles.length > 0) {
         console.log(
           "📧 Sample profile emails:",
-          profiles.map((p) => p.email)
+          profiles.map((p: { email: string }) => p.email)
         );
       } else {
         console.log("⚠️ No profiles found in database");
@@ -601,8 +598,7 @@ export const updateUserPlan = async (
   } catch (error: any) {
     console.error("Error updating user plan:", error);
     throw new Error(
-      `Error al actualizar el plan del usuario: ${
-        error.message || "Error desconocido"
+      `Error al actualizar el plan del usuario: ${error.message || "Error desconocido"
       }`
     );
   }

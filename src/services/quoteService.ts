@@ -117,7 +117,7 @@ export const getUserQuotes = async (
       throw error;
     }
 
-    return (data || []).map((quote) => ({
+    return (data || []).map((quote: Record<string, any>) => ({
       ...quote,
       created_at: new Date(quote.created_at),
     })) as QuoteData[];

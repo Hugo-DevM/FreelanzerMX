@@ -118,7 +118,7 @@ export const getDashboardData = async (userId: string): Promise<DashboardData> =
 
   if (transactions && transactions.length > 0) {
     const weekMap: { [week: string]: number } = {};
-    transactions.forEach((t) => {
+    transactions.forEach((t: { tipo: string; fecha: string; monto: number }) => {
       if (t.tipo === "ingreso") {
         const date = new Date(t.fecha);
         const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
@@ -146,12 +146,12 @@ export const getDashboardData = async (userId: string): Promise<DashboardData> =
     }));
 
     const totalIngresos = transactions
-      .filter((t) => t.tipo === "ingreso")
-      .reduce((sum, t) => sum + (t.monto || 0), 0);
+      .filter((t: { tipo: string; monto: number }) => t.tipo === "ingreso")
+      .reduce((sum: number, t: { monto: number }) => sum + (t.monto || 0), 0);
 
     const totalEgresos = transactions
-      .filter((t) => t.tipo === "egreso")
-      .reduce((sum, t) => sum + (t.monto || 0), 0);
+      .filter((t: { tipo: string; monto: number }) => t.tipo === "egreso")
+      .reduce((sum: number, t: { monto: number }) => sum + (t.monto || 0), 0);
 
     const total = totalIngresos + totalEgresos;
     if (total > 0) {

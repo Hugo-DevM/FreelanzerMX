@@ -12,7 +12,7 @@ export interface ContractData {
   start_date: string;
   delivery_date: string;
   city: string;
-  status: string; // 'pendiente' | 'en proceso' | 'completado'
+  status: string;
   quote_id?: string;
   created_at: Date;
   updated_at: Date;
@@ -103,8 +103,10 @@ export const getUserContracts = async (
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-
-    return data.map((contract) => ({
+    if (!data) {
+      return [];
+    }
+    return data.map((contract: Record<string, any>) => ({
       ...contract,
       created_at: new Date(contract.created_at),
     })) as ContractData[];
@@ -189,12 +191,15 @@ export const getConvertedQuoteIds = async (
 
     if (error) throw error;
 
-    console.log("Todos los contratos del usuario:", data);
+    if (!data) {
+      return [];
+    }
 
-    // Filtrar localmente los quote_id que no sean null
     const quoteIds = data
-      .map((contract) => contract.quote_id)
-      .filter((quoteId) => quoteId !== null && quoteId !== undefined);
+      .map((contract: { quote_id?: string | null }) => contract.quote_id)
+      .filter((quoteId: string | null | undefined): quoteId is string =>
+        quoteId !== null && quoteId !== undefined
+      );
 
     console.log("IDs de cotizaciones convertidas:", quoteIds);
 
