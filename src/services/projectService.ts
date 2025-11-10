@@ -55,27 +55,61 @@ export const getUserProjects = async (userId: string): Promise<Project[]> => {
 
     if (error) throw error;
 
-    // Obtener tareas para cada proyecto
-    const projects = await Promise.all(
-      (data || []).map(async (project: any) => {
-        const tasks = await getProjectTasks(project.id);
-        return {
-          id: project.id,
-          name: project.name,
-          description: project.description,
-          client: project.client,
-          status: project.status,
-          priority: project.priority,
-          dueDate: project.due_date,
-          deliverables: project.deliverables,
-          amount: project.amount,
-          contractId: project.contract_id,
-          tasks,
-          progress: calculateProgress(tasks),
-          createdAt: new Date(project.created_at),
-        };
-      })
-    );
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // ✅ OPTIMIZACIÓN: Obtener todas las tareas de todos los proyectos en UNA consulta
+    // Esto reduce de N consultas (una por proyecto) a solo 1 consulta
+    const projectIds = data.map((p: any) => p.id);
+    const { data: allTasks, error: tasksError } = await supabase
+      .from("project_tasks")
+      .select("*")
+      .in("project_id", projectIds)
+      .order("created_at", { ascending: true });
+
+    if (tasksError) {
+      console.error("Error fetching tasks:", tasksError);
+      // Continuar sin tareas en lugar de fallar completamente
+    }
+
+    // Agrupar tareas por proyecto
+    const tasksByProject = new Map<string, any[]>();
+    (allTasks || []).forEach((task: any) => {
+      if (!tasksByProject.has(task.project_id)) {
+        tasksByProject.set(task.project_id, []);
+      }
+      tasksByProject.get(task.project_id)!.push({
+        ...task,
+        dueDate: task.due_date,
+        estimatedHours: task.estimated_hours,
+        priority: task.priority,
+        order: task.order,
+        createdAt: new Date(task.created_at),
+        updatedAt: new Date(task.updated_at),
+      });
+    });
+
+    // Mapear proyectos con sus tareas
+    const projects = data.map((project: any) => {
+      const tasks = tasksByProject.get(project.id) || [];
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        client: project.client,
+        status: project.status,
+        priority: project.priority,
+        dueDate: project.due_date,
+        deliverables: project.deliverables,
+        amount: project.amount,
+        contractId: project.contract_id,
+        tasks,
+        progress: calculateProgress(tasks),
+        createdAt: new Date(project.created_at),
+      };
+    });
+
     return projects as Project[];
   } catch (error: any) {
     console.error("Error getting user projects:", error);
