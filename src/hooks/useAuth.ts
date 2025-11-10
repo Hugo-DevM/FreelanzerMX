@@ -194,17 +194,7 @@ export const useAuth = () => {
       }
     };
 
-    const handleBeforeUnload = () => {
-      // Handler para beforeunload
-    };
-
-    const handleUnload = () => {
-      // Handler para unload
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('unload', handleUnload);
 
     const {
       data: { subscription },
@@ -319,8 +309,6 @@ export const useAuth = () => {
     return () => {
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('unload', handleUnload);
     };
   }, [loadUserProfile]);
 
