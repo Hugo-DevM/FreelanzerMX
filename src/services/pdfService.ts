@@ -122,16 +122,38 @@ export const generateQuotePDF = async (quoteData: QuoteData): Promise<Blob> => {
     const desc = service.description;
     const price = `$${service.price.toLocaleString("es-MX")} MXN`;
 
-    pdf.setFillColor(245, 245, 245);
-    pdf.roundedRect(margin, y, contentWidth, 10, 2, 2, "F");
+    // ✅ FIX: Dividir la descripción en múltiples líneas si es muy larga
+    // Calcular el ancho disponible para la descripción (dejando espacio para el precio)
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "normal");
+    const priceWidth = pdf.getTextWidth(price);
+    const descMaxWidth = contentWidth - priceWidth - 20; // 20px de padding y espacio entre desc y precio
+    
+    // Usar splitTextToSize de jsPDF para dividir el texto automáticamente
+    const descLines = pdf.splitTextToSize(desc, descMaxWidth);
+    
+    // Calcular la altura necesaria para el rectángulo (mínimo 10, más si hay múltiples líneas)
+    const lineHeight = 6;
+    const padding = 4;
+    const minHeight = 10;
+    const calculatedHeight = Math.max(minHeight, descLines.length * lineHeight + padding * 2);
 
-    addText(desc, margin + 4, y + 7);
-    addText(price, pageWidth - margin - 4, y + 7, {
-      align: "right",
-      bold: true,
+    // Dibujar el rectángulo con la altura calculada
+    pdf.setFillColor(245, 245, 245);
+    pdf.roundedRect(margin, y, contentWidth, calculatedHeight, 2, 2, "F");
+
+    // Escribir la descripción línea por línea
+    descLines.forEach((line: string, index: number) => {
+      pdf.text(line, margin + 4, y + padding + (index + 1) * lineHeight);
     });
 
-    y += 14;
+    // Escribir el precio alineado a la derecha y verticalmente centrado
+    pdf.setFont("helvetica", "bold");
+    const priceY = y + (calculatedHeight / 2) + 2; // Centrar verticalmente
+    pdf.text(price, pageWidth - margin - 4, priceY, { align: "right" });
+
+    // Ajustar Y para el siguiente servicio
+    y += calculatedHeight + 4; // 4px de espacio entre servicios
   });
 
   // Total
