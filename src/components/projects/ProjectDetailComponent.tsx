@@ -820,7 +820,7 @@ const ProjectDetailComponent: React.FC<ProjectDetailComponentProps> = ({
                         : "Comienza agregando tareas para organizar tu trabajo"}
                     </p>
                     <div className="flex gap-3 justify-center">
-                      {project.description && (
+                      {project.description && userRole === "pro" && (
                         <Button
                           onClick={handleGenerateTasksWithAI}
                           disabled={generatingTasks || loadingTasks}
